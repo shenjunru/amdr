@@ -125,7 +125,7 @@
 
         // regexp: resource name
         // 'path/resource', '/resource' or 'resource'
-        rResource = /\/?[^\/]*$/,
+        rResource = /(\/?)[^\/]*$/,
 
         // regexp: end with '/'
         rEndSlash = /\/$/,
@@ -133,8 +133,9 @@
         // regexp: '?'
         rQizMark = /\?/,
 
-        sDotPath = '/./',
-        sDotDot  = '..',
+        // regexp: '.' or '..'
+        rDotSkip = /\.\.?/,
+
         sSlash   = '/',
 
         cjsModules = 'require,exports,module',
@@ -402,7 +403,7 @@
             deferred = new Deferred();
 
         config = config.clone();
-        config.pathNow = name.replace(rResource, sSlash);
+        config.pathNow = name.replace(rResource, '$1');
 
         // functions
         module.resolve = deferred.resolve;
@@ -429,6 +430,13 @@
     function Promise(then){
         this.then = then;
     }
+
+    /**
+     * registers a callback, always be fired when promise is fulfilled
+     *
+     * @param {Function} alwaysBack
+     * @return {Promise}
+     */
     Promise.prototype.always = function(alwaysBack){
         return this.then(alwaysBack, alwaysBack);
     };
@@ -671,7 +679,7 @@
             url = config.urlBase + url;
         }
         if (config.urlArgs) {
-            url += (rQizMark.test(url) === -1 ? '?' : '&') + config.urlArgs;
+            url += (rQizMark.test(url) ? '&' : '?') + config.urlArgs;
         }
         return url;
     }
@@ -687,15 +695,17 @@
         // cleans '/./'
         do {
             name = name.replace(rDotPath, sSlash);
-        } while (name.indexOf(sDotPath) > -1);
+        } while (name.indexOf('/./') > -1);
 
         // cleans 'path/..'
-        var offset, syms = name.split(sSlash);
-        while ( 0 < (offset = indexOf.call(syms, sDotDot, 1)) ) {
-            syms.splice(offset - 1, 2);
+        var index, offset = 1, syms = name.split(sSlash);
+        while ( 0 < (index = indexOf.call(syms, '..', offset)) ) {
+            rDotSkip.test(syms[index -= 1])
+                ? offset++
+                : syms.splice(index, 2);
         }
 
-        return name = syms.join(sSlash);
+        return syms.join(sSlash);
     }
 
     /**
@@ -783,8 +793,7 @@
      * @return {Module}
      * @private
      */
-    function getCurrentMoudle(){
-        var id;
+    function getCurrentMoudle(id){
         for (id in actScripts) {
             if (scriptParse === readyStates[actScripts[id].readyState]) {
                 return amdModules[id];
@@ -1169,7 +1178,7 @@
         if (config) {
             var urlBase = config.urlBase,
                 pathMap = config.pathMap,
-                key, value;
+                key;
 
             // ensures the urlBase ends in a slash
             if (urlBase && !rEndSlash.test(urlBase)) {
