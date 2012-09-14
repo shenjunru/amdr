@@ -16,16 +16,17 @@
 //   document {createElement(), getElementsByTagName()}
 
 // defined modules:
-//   require, exports, module - CommonJS modules
-//   Promise - Promise abstract class
+//   require, exports, module - CommonJS modules.
+//   isIE - determines the browser is Internet Explorer.
+//   Promise - Promise abstract class.
 //     instance properties/methods:
-//     - promise
+//     - then([callback Function[, fallback Function]])
 //     static methods (implements Promise/A):
 //     - resolve(promiseOrValue *)
 //     - resolved([value *])
 //     - rejected([reason *])
 //     - when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])
-//   Deferred - Deferred class, implements Promise/A
+//   Deferred - Deferred class, implements Promise/A.
 //     instance properties/methods:
 //     - promise Promise
 //     - resolve([value *])
@@ -1221,10 +1222,29 @@
      * @private
      */
     function cjsModule(context){
-        // TODO: ensures properties
+        // TODO: ensures properties/methods
         return context.module || (context.module = {
-            'exports': cjsExports(context),
-            'toUrl': function(name, config){
+            /** @type {Object} - module exports */
+            exports: cjsExports(context),
+
+            /**
+             * returns config property assigned by require.config()
+             *
+             * @return {Object}
+             */
+            config: function(){
+                return context.config.config;
+            },
+
+            /**
+             * converts a name to a url
+             * with given config or current config
+             *
+             * @param {String} name - name to convert
+             * @param {Object} [config] - config {@link Config}
+             * @return {String}
+             */
+            toUrl: function(name, config){
                 config = config || context.config;
 
                 var index = name.lastIndexOf('.'),
@@ -1248,6 +1268,16 @@
     locModules.module  = cjsModule;
 
     // defines other modules
+
+    /**
+     * module 'isIE' factory
+     *
+     * @return {Boolean}
+     * @private
+     */
+    locModules.isIE = function(){
+        return isIE;
+    };
 
     /**
      * module 'Promise' factory
