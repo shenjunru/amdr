@@ -5,38 +5,44 @@
  */
 
 // global exports:
-//   define(identifier, dependencies, factory)
-//   require(module, callback, fallback)
-//   require.config([config]);
+//   define(identifier String, dependencies Array, factory Function|Object)
+//   define(identifier String, factory Function|Object)
+//   define(dependencies Array, factory Function)
+//   define(factory Function|Object)
+//   require(module Array|String[, callback Function[, fallback Function]])
+//   require.config([config Object])
 
-// global imports:
-//   opera
-//   event
+// global imports (browser):
 //   document {createElement(), getElementsByTagName()}
 
 // defined modules:
 //   require, exports, module - CommonJS modules
-//   AMD - self exports,
-//     with config()
-//     static methods
-//   Promise - Promise abstract class,
-//     with resolve(), resolved(), rejected() and when()
-//     static methods implements Promise/A
-//   Deferred - Deferred class,
-//     Promise/A implementation
+//   Promise - Promise abstract class
+//     instance properties/methods:
+//     - promise
+//     static methods (implements Promise/A):
+//     - resolve(promiseOrValue *)
+//     - resolved([value *])
+//     - rejected([reason *])
+//     - when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])
+//   Deferred - Deferred class, implements Promise/A
+//     instance properties/methods:
+//     - promise Promise
+//     - resolve([value *])
+//     - reject([reason *])
+//     - notify([info *])
+//     - state()
 
-// Note:
-//   #IE-SCRIPT-ONERROR:
-//     script.onerror does not work in IE 6-8. There is no way to know if
-//     loading a script generates a 404, worse, it triggers the
-//     onreadystatechange with a complete state even in a 404 case.
-//
-//     script.onerror does work in IE 9+, but it has a bug where it does not
-//     fire script.onload event handlers right after execution of script.
-//     So script.onreadystatechange is still used. However, onreadystatechange
-//     fires with a complete state before the script.onerror function fires.
+// note:
+//   *script.onerror* does not work in IE 6-8. there is no way to know if the
+//   resource is not availiable. it triggers the onreadystatechange
+//   with a complete state.
+//   *script.onload* does work in IE 9+, but it has a bug where it does not
+//   fire script.onload event handlers right after execution of script.
+//   so script.onreadystatechange is still used. however, onreadystatechange
+//   fires with a complete state before the script.onerror function fires.
 
-(function(global, undef){
+(function(global, isIE, undef){
     'use strict';
 
     var // element: document
@@ -49,19 +55,22 @@
         testScript  = document.createElement('script'),
 
         // event: onload
-        eventOnload = 'onreadystatechange',
+        eventOnload = 'onload',
 
         // event: onerror
         eventOnfail = 'onerror',
 
-        // flag: script parsing
-        scriptParse = {},
-
-        // flag: supports script readyState
-        scriptState = eventOnload in testScript && !global.opera,
+        // flag: supports script 'onload' event
+        catchOnload = eventOnload in testScript,
 
         // flag: supports script 'onerror' event
-        scriptError = eventOnfail in testScript,
+        catchOnfail = eventOnfail in testScript,
+
+        // flag: uses script.readyState
+        scriptState = !catchOnload,
+
+        // flag: script parsing
+        scriptParse = {},
 
         // collection: script ready states
         readyStates = { 'interactive': scriptParse, 'loaded': 1, 'complete': 1 },
@@ -124,7 +133,7 @@
         rQizMark = /\?/,
 
         sDotPath = '/./',
-        sRelPath = '/../',
+        sDotDot  = '..',
         sSlash   = '/',
 
         cjsModules = 'require,exports,module',
@@ -133,12 +142,11 @@
         hasOwn = Object.prototype.hasOwnProperty,
 
         // function: reference of Array indexOf function
-        /** @private */
         indexOf = Array.prototype.indexOf || function(object, offset){
             var length = this.length;
 
             offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
-            for (1; offset < length; offset++) {
+            for (; offset < length; offset++) {
                 // skip accessing in sparse arrays
                 if (offset in this && object === this[offset]) {
                     return offset;
@@ -152,9 +160,12 @@
     // features detections
     // =========================================================================
 
-    if (!scriptState) {
-        eventOnload = 'onload';
+    if (scriptState) {
+        eventOnload = 'onreadystatechange';
     }
+    // force use script.readyState
+    // see note: script.onload
+    scriptState = isIE || scriptState;
 
 
     // utils
@@ -229,31 +240,25 @@
         }
 
         // adds 'onload' listener
-        script[eventOnload] = scriptState ? function(){
-            if (readyStates[script.readyState]) {
-                // Note: #IE-SCRIPT-ONERROR
-                script.timer = setTimeout(function(){
-                    scriptComplete(module, script);
-                }, 0);
-            }
-        } : function(event){
+        script[eventOnload] = catchOnload ? function(event){
             if ('load' === event.type) {
+                scriptComplete(module, script);
+            }
+        } : function(){
+            if (readyStates[script.readyState]) {
                 scriptComplete(module, script);
             }
         };
 
         // adds 'onerror' listener
-        if (scriptError) { script[eventOnfail] = function(){
-            // Note: #IE-SCRIPT-ONERROR
-            if (scriptState) {
-                clearTimeout(script.timer);
-                delete script.timer;
-            }
+        // see note: script.onerror
+        if (catchOnfail) { script[eventOnfail] = function(){
             scriptComplete(module, script, makeError('module load failure'));
         }; }
 
         // sets attributes
         script.charset = 'utf-8';
+        script.async = script.defer = true;
         script.type = 'text/javascript';
         script.src = module.url;
 
@@ -271,7 +276,7 @@
      */
     function scriptComplete(module, script, error){
         // removes listeners
-        script[eventOnload] = ''; if (scriptError) { script[eventOnfail] = ''; }
+        script[eventOnload] = ''; if (catchOnfail) { script[eventOnfail] = ''; }
 
         // removes form collection
         delete actScripts[module.id];
@@ -678,25 +683,18 @@
      * @private
      */
     function nameClean(name){
-        var idot, idir, flag;
-
         // cleans '/./'
         do {
             name = name.replace(rDotPath, sSlash);
-            flag = name.indexOf(sDotPath) > -1;
-        } while (flag);
+        } while (name.indexOf(sDotPath) > -1);
 
-        // cleans '/../'
-        do {
-            idot = name.indexOf(sRelPath);
-            if (flag = (0 < idot)) {
-                idir = name.lastIndexOf(sSlash, idot - 1);
-                name = name.slice(0, idir < 0 ? 0 : idir)
-                + name.slice(idot - name.length + 3);
-            }
-        } while (flag);
+        // cleans 'path/..'
+        var offset, syms = name.split(sSlash);
+        while ( 0 < (offset = indexOf.call(syms, sDotDot, 1)) ) {
+            syms.splice(offset - 1, 2);
+        }
 
-        return name;
+        return name = syms.join(sSlash);
     }
 
     /**
@@ -721,8 +719,12 @@
 
                 for (i = syms.length; i > 0; i--) {
                     path = syms.slice(0, i).join(sSlash);
-                    if (path = maps[path]) {
-                        syms.splice(0, i, path);
+                    if (hasOwn.call(maps, path)) {
+                        if (path = maps[path]) {
+                            syms.splice(0, i, path); // replace
+                        } else {
+                            syms.splice(0, i); // delete
+                        }
                         break;
                     }
                 }
@@ -998,7 +1000,7 @@
         }
     }
 
-    
+
     // core functions
     // =========================================================================
 
@@ -1164,11 +1166,20 @@
      */
     require.config = function(config){
         if (config) {
-            var urlBase = config.urlBase;
-            //Make sure the urlBase ends in a slash.
+            var urlBase = config.urlBase,
+                pathMap = config.pathMap,
+                key, value;
+
+            // ensures the urlBase ends in a slash
             if (urlBase && !rEndSlash.test(urlBase)) {
                 config.urlBase += '/';
             }
+            // ensures the pathMap is not end in a slash
+            // also cleans it
+            if (pathMap) { for (key in pathMap) {
+                pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
+            } }
+
             mixObject(globalConfig, config);
         }
         return globalConfig;
@@ -1273,4 +1284,4 @@
     global.define  = define;
     global.require = require;
 
-}(this));
+}(this, /*@cc_on!@*/!1));

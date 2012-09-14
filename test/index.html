@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test: amdr.js</title>
+    <link href="qunit/qunit.css" rel="stylesheet">
+    <script src="qunit/qunit.js"></script>
+</head>
+<body>
+<div id="qunit"></div>
+<script src="../amdr.js"></script>
+<script>
+    var config = require.config({
+        urlBase: 'test/..', // fake, point to current path
+        pathMap: {
+            'jquery': 'http://code.jquery.com/jquery-latest.min.js',
+            'foo': './foo/../', // fake, point to current path
+            'bar': 'bar/..'     // fake, point to current path
+        }
+    });
+
+    test('require.config()', 2, function(){
+        ok('' !== config.urlBase, 'config.urlBase: ' + config.urlBase);
+        ok(!!config.pathMap['jquery'], 'config.pathMap');
+    });
+
+    asyncTest('require "require"', 2, function(){
+        require('require', function(require){
+            ok('function' === typeof require, 'require is function');
+            ok('function' === typeof require('Promise'), 'Promise is function');
+            start();
+        }, fallback);
+    });
+
+    asyncTest('require "exports"', 1, function(){
+        require('exports', function(exports){
+            ok('object' === typeof exports, 'exports is object');
+            start();
+        }, fallback);
+    });
+
+    asyncTest('require "jquery"', 1, function(){
+        require('jquery', function(){
+            ok(!!jQuery, 'jQuery loaded!');
+
+            start();
+        }, fallback);
+    });
+
+    asyncTest('require non-existent', 1, function(){
+        require('non-existent', function(){
+            // ie 6-8 will goes here.
+            ok(false, 'callback fired!');
+            start();
+        }, function(){
+            ok(true, 'fallback fired!');
+            start();
+        });
+    });
+
+    asyncTest('require abs path', 1, function(){
+        var path = location.pathname.split('/').slice(0, -1).join('/');
+        require(path = path + '/bar-define.php?id=abs', function(exports){
+            // ie 6-8 will goes here.
+            ok('bar-abs' === exports, 'require: ' + path);
+            start();
+        }, fallback);
+    });
+
+    asyncTest('require 10 modules', 2, function(){
+        for (var i = 0, deps = [], exps = []; i < 10; i++) {
+            deps.push('foo/foo-define.php?id=' + i + '&r=' + Math.random());
+            exps.push('foo-' + i + '#bar-' + i);
+        }
+        require(deps, function(){
+            var expect = exps.join(','),
+                actual = [].join.call(arguments, ',');
+
+            ok(deps.length === arguments.length, 'args amount: ' + deps.length);
+            ok(expect === actual, 'exports: ' + actual);
+
+            start();
+        }, function(reason){
+            expect(1);
+            ok('context timeout.' === reason.message, reason);
+            start();
+        });
+    });
+
+    function fallback(reason){
+        expect(1);
+        ok(false, reason.message || reason);
+        start();
+    }
+</script>
+</body>
+</html>
