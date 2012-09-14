@@ -569,13 +569,12 @@
          * @param {*} [update] - anything
          */
         deferred.notify = function(update){
-            var i, l;
-            if (_fulfill) {
-                for (i = 0, l = progbacks.length; i < l; i++) {
-                    progbacks[i](update);
-                }
+            if (!_fulfill) {
+                throw makePromiseError();
             }
-            throw makePromiseError();
+            for (var i = 0, l = progbacks.length; i < l; i++) {
+                progbacks[i](update);
+            }
         };
 
         /**
