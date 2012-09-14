@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test: Deferred<class> module</title>
+</head>
+<body>
+<script src="global.js"></script>
+<script>
+require('Deferred', function(Deferred){
+    function log(object){
+        //console.log(object);
+        return object;
+    }
+    function callback(result){
+        ok(true, log('callback: ' + result));
+        throw new Error('from callback');
+    }
+    function fallback(reason){
+        ok(true, log('fallback: ' + reason));
+        return new Error('from fallback')
+    }
+    function progback(info){
+        ok(true, log('progback: ' + info));
+    }
+
+    module('deferred');
+
+    test('resolved callback', 1, function(){
+        var deferred = new Deferred();
+        deferred.resolve('foo');
+        deferred.then(callback, fallback);
+    });
+
+    test('rejected fallback', 1, function(){
+        var deferred = new Deferred();
+        deferred.then(callback, fallback);
+        deferred.reject('bar');
+    });
+
+    test('resolved with fallback', 2, function(){
+        var deferred = new Deferred();
+        deferred.resolve('foo');
+        deferred.then(callback, fallback).then(callback, fallback);
+    });
+
+    test('rejected with callback', 2, function(){
+        var deferred = new Deferred();
+        deferred.then(callback, fallback).then(callback, fallback);
+        deferred.reject('bar');
+    });
+
+    test('resolve with 2 callbacks arounds', 2, function(){
+        var deferred = new Deferred();
+        deferred.then(callback, fallback);
+        deferred.resolve('foo');
+        deferred.then(callback, fallback);
+    });
+
+    test('reject with 2 failbacks arounds', 2, function(){
+        var deferred = new Deferred();
+        deferred.then(callback, fallback);
+        deferred.reject('foo');
+        deferred.then(callback, fallback);
+    });
+});
+</script>
+</body>
+</html>
