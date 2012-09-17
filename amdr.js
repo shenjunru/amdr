@@ -52,7 +52,7 @@
         // element: resource insert point
         insertPoint = firstNodeOfTagName('head') || firstNodeOfTagName('script'),
 
-        // element: script tester
+        // element: script features tester
         testScript  = document.createElement('script'),
 
         // event: onload
@@ -165,7 +165,7 @@
     if (scriptState) {
         eventOnload = 'onreadystatechange';
     }
-    // force use script.readyState
+    // forces using script.readyState
     // see note: script.onload
     scriptState = isIE || scriptState;
 
@@ -212,7 +212,7 @@
     }
 
     function makePromiseError(){
-        return makeError('already fulfilled');
+        return makeError('promise fulfilled.');
     }
 
     function firstNodeOfTagName(name){
@@ -255,7 +255,7 @@
         // adds 'onerror' listener
         // see note: script.onerror
         if (catchOnfail) { script[eventOnfail] = function(){
-            scriptComplete(module, script, makeError('module load failure'));
+            scriptComplete(module, script, makeError('load failure.'));
         }; }
 
         // sets attributes
@@ -722,24 +722,27 @@
 
         if (!rAbsUrl.test(name)) {
             if (!rRelUrl.test(name)) {
-                // joins path maps
                 var maps = config.pathMap,
-                    syms = name.split(sSlash),
-                    i, path;
+                    syms, path, i;
 
-                for (i = syms.length; i > 0; i--) {
-                    path = syms.slice(0, i).join(sSlash);
-                    if (hasOwn.call(maps, path)) {
-                        if (path = maps[path]) {
-                            syms.splice(0, i, path); // replace
-                        } else {
-                            syms.splice(0, i); // delete
+                if (maps) {
+                    // joins path maps
+                    syms = name.split(sSlash);
+                    for (i = syms.length; i > 0; i--) {
+                        path = syms.slice(0, i).join(sSlash);
+                        if (hasOwn.call(maps, path)) {
+                            if (path = maps[path]) {
+                                syms.splice(0, i, path); // replace
+                            } else {
+                                syms.splice(0, i); // delete
+                            }
+                            break;
                         }
-                        break;
                     }
+                    name = syms.join(sSlash);
                 }
-                name = syms.join(sSlash);
-            } else {
+            } else if (config.pathNow) {
+                // joins current path
                 name = config.pathNow + name;
             }
 
@@ -900,11 +903,11 @@
                             exports.load(name, module.resolve, module.reject);
                         }
                     } else {
-                        deferred.reject(makeError('"load" method undefined.'));
+                        deferred.reject(makeError('"load()" undefined.'));
                     }
                 }, deferred.reject);
             } else {
-                deferred.reject(makeError('empty loader name.'));
+                deferred.reject(makeError('unnamed loader.'));
             }
         }
 
@@ -1052,17 +1055,27 @@
         // resolves module
         function callback(exports){
             try {
-                // executes module factory
-                var returns = factory.apply(global, exports);
+                var // executes module factory
+                    returns = factory.apply(global, exports),
+                    cjsExports = context.exports,
+                    cjsModule  = context.module;
+
+                cjsModule = cjsModule && cjsModule.exports;
             } catch (reason) {
                 // module rejected: module factory exception
                 module.reject(reason);
             }
 
-            // module resolved
-            // priority CommonJS 'exports' / 'module.exports',
+            // priority CommonJS 'module.exports' / 'exports',
             // or use factory returns
-            module.resolve(context.exports || returns);
+            if (undef !== cjsModule && cjsExports !== cjsModule) {
+                returns = cjsModule;
+            } else if (undef === returns && cjsExports) {
+                returns = cjsExports;
+            }
+
+            // module resolved
+            module.resolve(returns);
         }
 
         // rejects module
@@ -1259,8 +1272,8 @@
                     ext   = '';
 
                 if (-1 !== index) {
-                    name = name.substring(0, index);
                     ext = name.substring(index, name.length);
+                    name = name.substring(0, index);
                 }
 
                 name = nameNormalize(name, config);
