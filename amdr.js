@@ -52,8 +52,8 @@
         // element: resource insert point
         insertPoint = firstNodeOfTagName('head') || firstNodeOfTagName('script'),
 
-        // element: script features tester
-        testScript  = document.createElement('script'),
+        // element: features testing element
+        testElement  = document.createElement('script'),
 
         // event: onload
         eventOnload = 'onload',
@@ -62,10 +62,10 @@
         eventOnfail = 'onerror',
 
         // flag: supports script 'onload' event
-        catchOnload = eventOnload in testScript,
+        catchOnload = eventOnload in testElement,
 
         // flag: supports script 'onerror' event
-        catchOnfail = eventOnfail in testScript,
+        catchOnfail = eventOnfail in testElement,
 
         // flag: uses script.readyState
         scriptState = !catchOnload,
@@ -379,29 +379,31 @@
      * gets module instance from current context
      *
      * @param {String} name - module name
-     * @param {String} [prefix=''] - prefix name
+     * @param {String} [pipe=''] - pipe name
      * @return {Module}
      */
-    Context.prototype.getModule = function(name, prefix){
-        var id = (prefix ? prefix + '!' : '') + name;
+    Context.prototype.getModule = function(name, pipe){
+        var id = pipe ? (name + '!' + pipe) : name;
         return amdModules[id] || (amdModules[id] = new Module(
-            id, name, this.config
+            id, pipe || name, this.config
         ));
     };
 
     /**
      * module class
      *
-     * @param {Config} config
+     * @param {String} id - module id
+     * @param {String} path - module path
+     * @param {Config} config - context config
      * @constructor
      * @private
      */
-    function Module(id, name, config){
+    function Module(id, path, config){
         var module   = this,
             deferred = new Deferred();
 
         config = config.clone();
-        config.pathNow = name.replace(rResource, '$1');
+        config.pathNow = path.replace(rResource, '$1');
 
         // functions
         module.resolve = deferred.resolve;
@@ -413,10 +415,8 @@
         module.defined = false;
         module.padding = true;
 
-        module.id   = id;
-        module.name = name;
-        module.url  = nameToUrl(name, config);
-
+        module.id  = id;
+        module.url = id === path ? nameToUrl(path, config) : path;
     }
 
     /**
@@ -764,22 +764,16 @@
      */
     function nameParse(name, config){
         var index = name ? name.indexOf('!') : -1,
-            prefix;
+            pipe;
 
         if (-1 !== index) {
-            prefix = name.substring(0, index);
-            name   = name.substring(index + 1, name.length);
-        } else {
-            name = nameNormalize(name, config);
-        }
-
-        if (prefix) {
-            prefix = nameNormalize(prefix, config);
+            pipe = name.substring(index + 1, name.length);
+            name = name.substring(0, index);
         }
 
         return {
-            prefix: prefix,
-            name:   name
+            name: nameNormalize(name, config),
+            pipe: pipe
         };
     }
 
@@ -846,67 +840,60 @@
             return promiseResolved(locModules[name](context)).then(callback);
         }
 
-        var config = nameParse(name, context.config),
-            prefix = config.prefix,
-            module, deferred, promise, loader;
+        var config   = nameParse(name, context.config),
+            pipeName = config.pipe,
+            module, promise, deferred, pipeModule;
 
-        name = config.name;
+        if (!(name = config.name)) {
+            return promiseRejected(makeError('module name empty.')).then(fallback);
+        };
 
-        if (undef === prefix) {
-            /* loads a module normally */
+        // gets module/loader instance
+        module  = context.getModule(name);
 
-            // gets module instance
-            module  = context.getModule(name);
+        // module's promise will be returned
+        promise = module.promise;
 
-            // module's promise will be returned
-            promise = module.promise;
-
-            if (module.padding) {
-                scriptLoad(module);
-            }
-        } else {
-            /* loads a module by another module<loader> */
-
+        if (undef !== pipeName /* allows empty string */) {
             // a new deferred instance
             deferred = new Deferred();
 
+            // loads resource when module<loader> is resolved
+            promise.then(function(exports){
+                if (exports && exports.load) {
+                    // normalizes resource name
+                    if (exports.normalize) {
+                        // TODO: ensures parameters
+                        pipeName = exports.normalize(pipeName, function(name){
+                            return nameNormalize(name, context.config);
+                        });
+                    } else {
+                        pipeName = nameNormalize(pipeName, context.config);
+                    }
+
+                    // gets module instance of this resource
+                    pipeModule = context.getModule(name, pipeName);
+
+                    // fulfills deferred's promise when module fulfilled
+                    pipeModule.promise.then(deferred.resolve, deferred.reject);
+
+                    if (pipeModule.padding) {
+                        pipeModule.padding = false;
+
+                        // TODO: ensures parameters
+                        exports.load(pipeName, pipeModule.resolve, pipeModule.reject);
+                    }
+                } else {
+                    deferred.reject(makeError('"load()" undefined.'));
+                }
+            }, deferred.reject);
+
             // deferred's promise will be returned
             promise = deferred.promise;
+        }
 
-            if (prefix) {
-                // gets module<loader> instance
-                loader = context.getModule(prefix);
-
-                // loads resource when module<loader> is resolved
-                loader.promise.then(function(exports){
-                    if (exports && exports.load) {
-                        // normalizes resource name
-                        if (exports.normalize) {
-                            // TODO: ensures parameters
-                            name = exports.normalize(name, function(name){
-                                return nameNormalize(name, context.config);
-                            });
-                        } else {
-                            name = nameNormalize(name, context.config);
-                        }
-
-                        // gets module instance of this resource
-                        module = context.getModule(name, prefix);
-
-                        // fulfills deferred's promise when module fulfilled
-                        module.promise.then(deferred.resolve, deferred.reject);
-
-                        if (!module.ready) {
-                            // TODO: ensures parameters
-                            exports.load(name, module.resolve, module.reject);
-                        }
-                    } else {
-                        deferred.reject(makeError('"load()" undefined.'));
-                    }
-                }, deferred.reject);
-            } else {
-                deferred.reject(makeError('unnamed loader.'));
-            }
+        if (module.padding) {
+            scriptLoad(module);
         }
 
         // returns a promise
