@@ -2,7 +2,7 @@ AMDR (Asynchronous Module Define & Require)
 ===========================================
 
 amdr.js is a small and very fast AMD-compliant asynchronous loader.
-Size: less than 8KB (3.2KB gzipped) using YUI Compressor.
+Size: less than 7KB (3KB gzipped) using UglifyJS.
 
 ----------------------------------------
 

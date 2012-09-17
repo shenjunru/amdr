@@ -242,10 +242,8 @@
         }
 
         // adds 'onload' listener
-        script[eventOnload] = catchOnload ? function(event){
-            if ('load' === event.type) {
-                scriptComplete(module, script);
-            }
+        script[eventOnload] = catchOnload ? function(){
+            scriptComplete(module, script);
         } : function(){
             if (readyStates[script.readyState]) {
                 scriptComplete(module, script);
