@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test: amdr.js</title>
+    <script src="global.js"></script>
+</head>
+<body>
+<div class="loader-css" style="display: none;">css loaded!</div>
+<script>
+    require.config({
+        pathMap: {
+            'loader': '../loader'
+        }
+    });
+    asyncTest('load css file', function(){
+        require('loader/css!qunit/qunit.css?2', function(){
+            ok(true, 'load successfull!');
+        }, function(reason){
+            ok(false, reason);
+        }).always(function(){
+            start();
+        });
+    });
+</script>
+</body>
+</html>
