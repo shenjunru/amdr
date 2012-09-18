@@ -6,22 +6,38 @@
     <script src="global.js"></script>
 </head>
 <body>
-<div class="loader-css" style="display: none;">css loaded!</div>
+<div class="loader-css" style="display: none;">style.php loaded!</div>
 <script>
     require.config({
         pathMap: {
             'loader': '../loader'
         }
     });
-    asyncTest('load css file', function(){
-        require('loader/css!qunit/qunit.css?2', function(){
-            ok(true, 'load successfull!');
-        }, function(reason){
-            ok(false, reason);
-        }).always(function(){
-            start();
-        });
+    asyncTest('load style.php', function(){
+        require('loader/css-src!style.php', callback, fallback).always(always);
     });
+    asyncTest('load non-existent.css', function(){
+        require('loader/css-src!non-existent.css', rejected, fallback).always(always);
+    });
+    asyncTest('load jquery.com/reset.css', function(){
+        require('loader/css-src!http://static.jquery.com/files/rocker/css/reset.css', callback, fallback).always(always);
+    });
+    asyncTest('load jquery.com/none.css', function(){
+        require('loader/css-src!http://static.jquery.com/files/rocker/css/none.css', callback, fallback).always(always);
+    });
+
+    function rejected(){
+        ok(false, 'load successfull!');
+    }
+    function callback(exports){
+        ok(true, 'load successfull!');
+    }
+    function fallback(reason){
+        ok(true, reason);
+    }
+    function always(){
+        start();
+    }
 </script>
 </body>
 </html>
