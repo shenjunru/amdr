@@ -61,11 +61,10 @@
         // event: onerror
         eventOnfail = 'onerror',
 
-        // flag: supports script 'onload' event
-        catchOnload = eventOnload in testElement,
+        sReadyState = 'readyState',
 
-        // flag: supports script 'onerror' event
-        catchOnfail = eventOnfail in testElement,
+        // flag: supports script 'onload' event
+        catchOnload = eventOnload in testElement || !(sReadyState in testElement),
 
         // flag: uses script.readyState
         scriptState = !catchOnload,
@@ -252,9 +251,9 @@
 
         // adds 'onerror' listener
         // see note: script.onerror
-        if (catchOnfail) { script[eventOnfail] = function(){
+        script[eventOnfail] = function(){
             scriptComplete(module, script, makeError('load failure.'));
-        }; }
+        };
 
         // sets attributes
         script.charset = 'utf-8';
@@ -276,7 +275,7 @@
      */
     function scriptComplete(module, script, error){
         // removes listeners
-        script[eventOnload] = ''; if (catchOnfail) { script[eventOnfail] = ''; }
+        script[eventOnfail] = script[eventOnload] = '';
 
         // removes form collection
         delete actScripts[module.id];
