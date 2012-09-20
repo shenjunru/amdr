@@ -14,20 +14,23 @@
         }
     });
     asyncTest('load style.php', function(){
-        require('loader/css-src!style.php', callback, fallback).always(always);
+        require('loader/css!style.php', callback, resolved).always(always);
     });
     asyncTest('load non-existent.css', function(){
-        require('loader/css-src!non-existent.css', rejected, fallback).always(always);
+        require('loader/css!non-existent.css', rejected, fallback).always(always);
     });
     asyncTest('load jquery.com/reset.css', function(){
-        require('loader/css-src!http://static.jquery.com/files/rocker/css/reset.css', callback, fallback).always(always);
+        require('loader/css!http://static.jquery.com/files/rocker/css/reset.css', callback, resolved).always(always);
     });
     asyncTest('load jquery.com/none.css', function(){
-        require('loader/css-src!http://static.jquery.com/files/rocker/css/none.css', callback, fallback).always(always);
+        require('loader/css!http://static.jquery.com/files/rocker/css/none.css', callback, fallback).always(always);
     });
 
     function rejected(){
         ok(false, 'load successfull!');
+    }
+    function resolved(reason){
+        ok(false, reason);
     }
     function callback(exports){
         ok(true, 'load successfull!');

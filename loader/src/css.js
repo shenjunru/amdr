@@ -76,12 +76,14 @@
         // collection: loading timeouts
         queue = {},
 
+        // collection: delayed define
         delay = [],
 
-        // id seed
-        seed  = 0,
+        // timer: loading complete checker
+        timer = 0,
 
-        timer = 0;
+        // id seed
+        seed  = 0;
 
     // browser features detecting
     // uses data url to avoid extra requests
@@ -122,13 +124,12 @@
 
         // events handlers
         link[eventOnload] = function(rules){
-            // IE always fire 'onload' even 404
-            if (!skipTest || hasCssRule(link)) {
+            if (!catchOnload || hasCssRule(link)) {
                 // load success
                 moduleComplete(id, link, true);
                 delayExecute(resolve, link);
             } else {
-                // load failure: IE loaded with rules=0
+                // load failure: rules=0
                 link[eventOnfail]();
             }
         };
@@ -167,7 +168,7 @@
 
         // if error occurs, remove from dom tree
         if (!success) {
-            //insertPoint.removeChild(link);
+            insertPoint.removeChild(link);
         }
     }
 
@@ -223,12 +224,12 @@
 
     function hasCssRule(sheet){
         try {
-            sheet = sheet.sheet || sheet.styleSheet;
-            return 0 < (sheet.rules || sheet.cssRules).length;
-        } catch(_) {
-            // cross domain:
-            // IE: file unavailable.
-            return !isIE || false;
+            var sheet = sheet.sheet || sheet.styleSheet,
+                rules = sheet.rules || sheet.cssRules;
+            return !rules /* Webkit */ || 0 < rules.length;
+        } catch(error) {
+            // IE only throws error when cross domain request failed.
+            return !isIE && isCrossDomain(error);
         }
     }
 
@@ -240,9 +241,9 @@
             // Webkit: creates link.sheet right after file loaded
             if (sheet = link.sheet) {
                 // Gecko: also throws error when loading
-                try { rules = sheet.cssRules; } catch(_) {
+                try { rules = sheet.cssRules; } catch(error) {
                     // Opera/Gecko: onload - cross domain
-                    cross = isOpera || _.code === (_.SECURITY_ERR || 1000);
+                    cross = isCrossDomain(error);
                 }
 
                 if (rules) {
@@ -255,6 +256,10 @@
 
         // continue or stop
         timer = id ? setTimeout(checkComplete, 100) : 0;
+    }
+
+    function isCrossDomain(error){
+        return isOpera || error.code === (error.SECURITY_ERR || 1000);
     }
 
 }(this, /*@cc_on!@*/!1));
