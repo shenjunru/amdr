@@ -1,7 +1,7 @@
 /*!
- * CSS file loader for AMDR
+ * CSS file loader for AMDR (sha1: 3a30d4518ca1e815a981f3427143f76f2cdd0739)
  * (c) 2012 Shen Junru. MIT License.
- * http://github.com/xfsn/amdr
+ * http://github.com/shenjunru/amdr
  */
 
 // global imports:
@@ -101,22 +101,22 @@
     });
 
     define({
-        load: function(name, resolve, reject){
+        load: function(name, module){
             var id = idMap[name] || (idMap[name] = 'amdr-css-' + seed++);
 
             if (!links[id]) {
                 if (waitTest) {
                     // waiting for browser features detecting
-                    delay.push([id, name, resolve, reject]);
+                    delay.push([id, name, module]);
                 } else {
                     // defines current one
-                    moduleDefine.call(global, id, name, resolve, reject);
+                    moduleDefine.call(global, id, name, module);
                 }
             }
         }
     });
 
-    function moduleDefine(id, name, resolve, reject){
+    function moduleDefine(id, name, module){
         var link = links[id] = createLink(name);
 
         // attributes
@@ -127,7 +127,7 @@
             if (!catchOnload || hasCssRule(link)) {
                 // load success
                 moduleComplete(id, link, true);
-                delayExecute(resolve, link);
+                delayExecute(module.resolve, link);
             } else {
                 // load failure: rules=0
                 link[eventOnfail]();
@@ -135,13 +135,13 @@
         };
         link[eventOnfail] = function(){
             moduleComplete(id, link);
-            delayExecute(reject, new Error('load failures.'));
+            delayExecute(module.reject, new Error('load failures.'));
         };
         // adds timeout id to queue
         queue[id] = setTimeout(function(){
             moduleComplete(id, link);
-            delayExecute(reject, new Error('load timeout.'));
-        }, isOpera ? 3000 : 7000); // TODO: get timeout config
+            delayExecute(module.reject, new Error('load timeout.'));
+        }, isOpera ? 3000 : 1000 * module.config().timeout);
 
         // inserts to document
         insertPoint.appendChild(link);
@@ -219,7 +219,7 @@
     function delayExecute(func, param){
         setTimeout(function(){
             func(param);
-        });
+        }, 0);
     }
 
     function hasCssRule(sheet){
