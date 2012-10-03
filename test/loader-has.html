@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test: loader/has</title>
+    <script src="global.js"></script>
+</head>
+<body>
+<script>
+    require.config({
+        debug: true,
+        pathMap: {
+            'loader': '../loader'
+        }
+    });
+
+    test('load has module', function(){
+        stop();
+        require('loader/has', function(has){
+            has.add('test', true);
+            callback(has);
+        }, fallback).always(always);
+    });
+
+    test('load css by "has" condition', function(){
+      stop();
+        require('loader/has!test'
+            + '?loader/css!//static.jquery.com/files/rocker/css/reset.css'
+            + ':loader/css!//static.jquery.com/files/rocker/css/none.css'
+            , callback, fallback
+        ).always(always);
+    });
+
+    function callback(exports){
+        ok(true, 'load successfull!');
+    }
+    function fallback(reason){
+        ok(true, reason);
+    }
+    function always(){
+        start();
+    }
+</script>
+</body>
+</html>
