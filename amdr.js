@@ -1,7 +1,7 @@
 /*!
- * AMDR <Asynchronous Module Define & Require>
+ * AMDR 1.0 (sha1: 198b06ca455ffa6e2698eabe0c4266948a21ce7e)
  * (c) 2012 Shen Junru. MIT License.
- * http://github.com/xfsn/amdr
+ * http://github.com/shenjunru/amdr
  */
 
 // global exports:
@@ -33,6 +33,18 @@
 //     - reject([reason *])
 //     - notify([info *])
 //     - state()
+
+// how to define a loader:
+//   exports.load(name String, module Object)
+//     - name - resource name
+//     - module.resolve(value) - call it when resource load successful
+//     - module.reject(reason) - call it when resource load failed
+//     - module.config() - get module config
+//     - module.load([url String]) - uses default way to load resource
+//     - module.toUrl(name String[, config Object]) - convert name to url by config
+//   export.normalize(name String[, normalize Function]) - optional
+//     - name - name need to be converted
+//     - normalize(name String) - default normalizer
 
 // note:
 //   *script.onerror* does not work in IE 6-8. there is no way to know if the
@@ -206,12 +218,18 @@
         return target;
     }
 
-    function makeError(message){
-        return new Error(message);
+    function makeError(message, ignore){
+        var error = new Error(message);
+        if (globalConfig.debug && !ignore) {
+            setTimeout(function(){
+                throw error;
+            }, 0);
+        }
+        return error;
     }
 
     function makePromiseError(){
-        return makeError('promise fulfilled.');
+        return makeError('promise fulfilled.', true);
     }
 
     function firstNodeOfTagName(name){
@@ -225,19 +243,20 @@
     /**
      * loads module by script element
      *
-     * @param {Module} module
+     * @param {Module} module - module instance
+     * @param {String} [url] - custom url
      * @private
      */
-    function scriptLoad(module){
+    function scriptLoad(module, url){
         var script = document.createElement('script');
 
         // sets module as executing
         module.padding = false;
 
         // adds to collection
-        actScripts[module.id] = script;
+        actScripts[module.name] = script;
         if (scriptState) {
-            amdDefineQ[module.id] = [];
+            amdDefineQ[module.name] = [];
         }
 
         // adds 'onload' listener
@@ -259,7 +278,7 @@
         script.charset = 'utf-8';
         script.async = script.defer = true;
         script.type = 'text/javascript';
-        script.src = module.url;
+        script.src = url || nameToUrl(module.name, module.context.config);
 
         // inserts
         insertPoint.appendChild(script);
@@ -278,7 +297,7 @@
         script[eventOnfail] = script[eventOnload] = '';
 
         // removes form collection
-        delete actScripts[module.id];
+        delete actScripts[module.name];
 
         if (error) {
             // module rejected: script load failure
@@ -288,7 +307,7 @@
             var params, queue = amdDefineQ;
 
             if (scriptState) {
-                queue = queue[module.id];
+                queue = queue[module.name];
             }
 
             while (queue.length) {
@@ -298,7 +317,7 @@
             }
 
             if (scriptState) {
-                delete queue[module.id];
+                delete queue[module.name];
             }
 
             // resolves module for traditional "browser globals" script
@@ -336,6 +355,7 @@
         config.pathNow = path || '';
         config.pathMap = {};
         config.timeout = 7;
+        config.debug   = false;
     }
 
     /**
@@ -378,31 +398,28 @@
      * gets module instance from current context
      *
      * @param {String} name - module name
-     * @param {String} [pipe=''] - pipe name
      * @return {Module}
      */
-    Context.prototype.getModule = function(name, pipe){
-        var id = pipe ? (name + '!' + pipe) : name;
-        return amdModules[id] || (amdModules[id] = new Module(
-            id, pipe || name, this.config
+    Context.prototype.getModule = function(name){
+        return amdModules[name] || (amdModules[name] = new Module(
+            name, this.config
         ));
     };
 
     /**
      * module class
      *
-     * @param {String} id - module id
-     * @param {String} path - module path
+     * @param {String} name - module name
      * @param {Config} config - context config
      * @constructor
      * @private
      */
-    function Module(id, path, config){
+    function Module(name, config){
         var module   = this,
             deferred = new Deferred();
 
         config = config.clone();
-        config.pathNow = path.replace(rResource, '$1');
+        config.pathNow = name.replace(rResource, '$1');
 
         // functions
         module.resolve = deferred.resolve;
@@ -413,9 +430,7 @@
         module.context = new Context(config);
         module.defined = false;
         module.padding = true;
-
-        module.id  = id;
-        module.url = id === path ? nameToUrl(path, config) : path;
+        module.name    = name;
     }
 
     /**
@@ -658,6 +673,28 @@
     // =========================================================================
 
     /**
+     * converts a name to a url
+     * with given config or current config
+     *
+     * @param {String} name - name to convert
+     * @param {Object} config - config {@link Config}
+     * @return {String}
+     */
+    function toUrl(name, config){
+        var index = name.lastIndexOf('.'),
+        ext   = '';
+
+        if (-1 !== index) {
+            ext = name.substring(index, name.length);
+            name = name.substring(0, index);
+        }
+
+        name = nameNormalize(name, config);
+
+        return nameToUrl(name, config, ext);
+    }
+
+    /**
      * converts name to url with config
      *
      * @param {String} name - normalized module name
@@ -839,16 +876,17 @@
             return promiseResolved(locModules[name](context)).then(callback);
         }
 
-        var config   = nameParse(name, context.config),
-            pipeName = config.pipe,
-            module, promise, deferred, pipeModule;
+        var loader   = isNaN(index) && index,
+            resource = nameParse(name, context.config),
+            pipeName = resource.pipe,
+            module, promise, deferred;
 
-        if (!(name = config.name)) {
+        if (!(name = resource.name)) {
             return promiseRejected(makeError('module name empty.')).then(fallback);
         };
 
         // gets module/loader instance
-        module  = context.getModule(name);
+        module = context.getModule(name);
 
         // module's promise will be returned
         promise = module.promise;
@@ -862,7 +900,6 @@
                 if (exports && exports.load) {
                     // normalizes resource name
                     if (exports.normalize) {
-                        // TODO: ensures parameters
                         pipeName = exports.normalize(pipeName, function(name){
                             return nameNormalize(name, context.config);
                         });
@@ -870,18 +907,8 @@
                         pipeName = nameNormalize(pipeName, context.config);
                     }
 
-                    // gets module instance of this resource
-                    pipeModule = context.getModule(name, pipeName);
-
-                    // fulfills deferred's promise when module fulfilled
-                    pipeModule.promise.then(deferred.resolve, deferred.reject);
-
-                    if (pipeModule.padding) {
-                        pipeModule.padding = false;
-
-                        // TODO: ensures parameters
-                        exports.load(pipeName, pipeModule.resolve, pipeModule.reject);
-                    }
+                    // loads piped module
+                    loadModule(context, pipeName, exports).then(deferred.resolve, deferred.reject);
                 } else {
                     deferred.reject(makeError('"load()" undefined.'));
                 }
@@ -891,12 +918,38 @@
             promise = deferred.promise;
         }
 
-        if (module.padding) {
-            scriptLoad(module);
-        }
+        if (loader) {
+            // loads module by a loader module
 
-        // returns a promise
-        return promise.then(callback, fallback);
+            if (module.padding) {
+                module.padding = false;
+                loader.load(name, {
+                    resolve: module.resolve,
+                    reject:  module.reject,
+                    config: function(){
+                        return module.context.config;
+                    },
+                    load: function(url){
+                        scriptLoad(module, url);
+                    },
+                    toUrl: function(name, config){
+                        return toUrl(name, config || this.config());
+                    }
+                });
+            }
+
+            // returns a promise
+            return promise;
+        } else {
+            // loads module in default way
+
+            if (module.padding) {
+                scriptLoad(module);
+            }
+
+            // returns a promise
+            return promise.then(callback, fallback);
+        }
 
         // module resolved
         function callback(exports){
@@ -1016,7 +1069,7 @@
         // if name is given and not matched with current one,
         // gets the correct module & context instance.
         name = nameNormalize(name, context.config);
-        if (name && name !== module.id) {
+        if (name && name !== module.name) {
             module  = context.getModule(name);
             context = module.context;
         }
@@ -1123,7 +1176,7 @@
 
         if (scriptState) {
             module = getCurrentMoudle();
-            amdDefineQ[module.id].push([name, dependencies, requires, factory]);
+            amdDefineQ[module.name].push([name, dependencies, requires, factory]);
         } else {
             amdDefineQ.push([name, dependencies, requires, factory]);
         }
@@ -1134,7 +1187,8 @@
      * @type {Object}
      */
     define.amd = {
-        version: '%VERSION%'
+        version: '%VERSION%',
+        jQuery:  true
     };
 
     /**
@@ -1250,19 +1304,7 @@
              * @return {String}
              */
             toUrl: function(name, config){
-                config = config || context.config;
-
-                var index = name.lastIndexOf('.'),
-                    ext   = '';
-
-                if (-1 !== index) {
-                    ext = name.substring(index, name.length);
-                    name = name.substring(0, index);
-                }
-
-                name = nameNormalize(name, config);
-
-                return nameToUrl(name, config, ext);
+                return toUrl(name, config || context.config);
             }
         });
     }
