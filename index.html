@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="amdr.js : JavaScript: Asynchronous Module Define &amp; Require" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>amdr.js</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/shenjunru/amdr">View on GitHub</a>
+
+          <h1 id="project_title">amdr.js</h1>
+          <h2 id="project_tagline">JavaScript: Asynchronous Module Define &amp; Require</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/shenjunru/amdr/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/shenjunru/amdr/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <p>amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
+Size: less than 7KB (3KB gzipped) using UglifyJS.</p>
+
+<hr><h2>Features:</h2>
+
+<ul>
+<li>Loads CommonJS AMD-formatted javascript modules in parallel.</li>
+<li>Loads CommonJS Modules (v1.1 when wrapped in a <code>define()</code>)</li>
+<li>Loads non-AMD javascript files in parallel, too.</li>
+<li>Supports IE6+, FireFox, Chrome, Safari 3.2+, Opera 9.5+</li>
+<li>Tested with IE6+, FireFox 2+, Chrome 10+, Safari 4+, Opera 9.5+</li>
+</ul><h2>API:</h2>
+
+<ul>
+<li><code>define([name String], [dependencies Array], factory Function)</code></li>
+<li><code>require(dependencies Array|String[, callback Function[, fallback Function]])</code></li>
+</ul><h2>Static Modules:</h2>
+
+<ul>
+<li>"Promise" function</li>
+<li>"Deferred" function</li>
+</ul><h2>Module "Promise" API:</h2>
+
+<ul>
+<li>
+<code>Promise(then Function)</code> is a abstract class.</li>
+<li>instance methods:</li>
+<li><code>promise.then(callback Function[, fallback Function[, progback Function]])</code></li>
+<li><code>promise.always(alwaysBack Function)</code></li>
+<li>static methods: (implements Promise/A)</li>
+<li><code>Promise.resolve(promiseOrValue *)</code></li>
+<li><code>Promise.resolved([value *])</code></li>
+<li><code>Promise.rejected([reason *])</code></li>
+<li><code>Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])</code></li>
+</ul><h2>Module "Deferred" API:</h2>
+
+<ul>
+<li>
+<code>Deferred()</code> is a class, implements Promise/A.</li>
+<li>instance methods:</li>
+<li>
+<code>deferred.promise</code> a promise instance (implemented Promise/A).</li>
+<li>
+<code>deferred.resolve([value *])</code> resolve promise.</li>
+<li>
+<code>deferred.reject([reason *])</code> reject promise.</li>
+<li>
+<code>deferred.notify([info *])</code> fires progbacks.</li>
+<li>
+<code>deferred.state()</code> returns "padding", "resolved" or "rejected"</li>
+</ul><h2>Module "has" API:</h2>
+
+<ul>
+<li><code>has(feature String) Boolean</code></li>
+<li><code>has.add(feature String, definition Boolean|Function)</code></li>
+</ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">amdr.js maintained by <a href="https://github.com/shenjunru">shenjunru</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker(" UA-35375054-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+
+  </body>
+</html>
