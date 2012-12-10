@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.0 (sha1: 198b06ca455ffa6e2698eabe0c4266948a21ce7e)
+ * AMDR 1.0b2 (sha1: 80efc35251f711d05606c4469c0da95d29e79ee8)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -218,18 +218,25 @@
         return target;
     }
 
-    function makeError(message, ignore){
-        var error = new Error(message);
-        if (globalConfig.debug && !ignore) {
-            setTimeout(function(){
-                throw error;
-            }, 0);
+    function logError(error, memo){
+        if (console) { (console.error || console.log).call(
+            console, memo || error.stack || e.stacktrace || error
+        ); }
+    }
+
+    function makeError(memo, ignore){
+        var error = new Error(memo.message);
+        if (true !== ignore && globalConfig.debug) {
+            logError(error, memo);
         }
         return error;
     }
 
     function makePromiseError(){
-        return makeError('promise fulfilled.', true);
+        return makeError({
+            message: 'promise fulfilled.',
+            emitter: 'deferred'
+        }, true);
     }
 
     function firstNodeOfTagName(name){
@@ -247,7 +254,7 @@
      * @param {String} [url] - custom url
      * @private
      */
-    function scriptLoad(module, url){
+    function scriptLoad(module, emitter, url){
         var script = document.createElement('script');
 
         // sets module as executing
@@ -271,7 +278,11 @@
         // adds 'onerror' listener
         // see note: script.onerror
         script[eventOnfail] = function(){
-            scriptComplete(module, script, makeError('load failure.'));
+            scriptComplete(module, script, makeError({
+                message: 'load failure.',
+                parent:  emitter,
+                source:  module.name
+            }));
         };
 
         // sets attributes
@@ -868,25 +879,31 @@
      * @param {Context} context - module context
      * @param {String} name - module name
      * @param {Number|String} index - index in the context
+     * @param {String} emitter - emitter name
      * @return {Promise} - module promise
      * @private
      */
-    function loadModule(context, name, index){
+    function loadModule(context, name, index, emitter){
         if (name in locModules) {
             return promiseResolved(locModules[name](context)).then(callback);
         }
 
         var loader   = isNaN(index) && index,
             resource = nameParse(name, context.config),
+            currName = resource.name,
             pipeName = resource.pipe,
             module, promise, deferred;
 
-        if (!(name = resource.name)) {
-            return promiseRejected(makeError('module name empty.')).then(fallback);
-        };
+        if (!currName) {
+            return promiseRejected(makeError({
+                message: 'module name empty.',
+                parent:  emitter,
+                source:  name
+            })).then(fallback);
+        }
 
         // gets module/loader instance
-        module = context.getModule(name);
+        module = context.getModule(currName);
 
         // module's promise will be returned
         promise = module.promise;
@@ -908,9 +925,14 @@
                     }
 
                     // loads piped module
-                    loadModule(context, pipeName, exports).then(deferred.resolve, deferred.reject);
+                    loadModule(context, pipeName, exports, emitter)
+                        .then(deferred.resolve, deferred.reject);
                 } else {
-                    deferred.reject(makeError('"load()" undefined.'));
+                    deferred.reject(makeError({
+                        message: '"load()" undefined.',
+                        parent:  emitter,
+                        source:  name
+                    }));
                 }
             }, deferred.reject);
 
@@ -923,14 +945,14 @@
 
             if (module.padding) {
                 module.padding = false;
-                loader.load(name, {
+                loader.load(currName, {
                     resolve: module.resolve,
                     reject:  module.reject,
                     config: function(){
                         return module.context.config;
                     },
                     load: function(url){
-                        scriptLoad(module, url);
+                        scriptLoad(module, emitter, url);
                     },
                     toUrl: function(name, config){
                         return toUrl(name, config || this.config());
@@ -944,7 +966,7 @@
             // loads module in default way
 
             if (module.padding) {
-                scriptLoad(module);
+                scriptLoad(module, emitter);
             }
 
             // returns a promise
@@ -974,13 +996,14 @@
     /**
      * loads modules
      *
-     * @param {Context} context
-     * @param {Array} modules
-     * @param {Array} [requires]
+     * @param {Context} context - loading context
+     * @param {Array} modules - required module names
+     * @param {Array} [requires] - inner required module names
+     * @param {String} emitter - emitter name
      * @return {Promise} - context promise
      * @private
      */
-    function loadModules(context, modules, requires){
+    function loadModules(context, modules, requires, emitter){
         var exports = [],
             next    = true,
             offset  = modules.length,
@@ -995,7 +1018,7 @@
             exports.length = offset;
             for (index = 0; next && index < length; index++) {
                 if (name = modules[index]) {
-                    loadModule(context, name, index < offset ? index : name)
+                    loadModule(context, name, index < offset ? index : name, emitter)
                         .then(callback, fallback);
                 }
             }
@@ -1044,7 +1067,11 @@
                 timeout = true;
 
                 // context rejected: timeout
-                context.reject(makeError('context timeout.'));
+                context.reject(makeError({
+                    message: 'execute timeout.',
+                    parent:  emitter,
+                    source:  'context'
+                }));
             }
         }
     }
@@ -1087,7 +1114,7 @@
         // sets module as executing
         module.padding = false;
 
-        loadModules(context, dependencies, requires).then(callback, fallback);
+        loadModules(context, dependencies, requires, module.name).then(callback, fallback);
 
         // resolves module
         function callback(exports){
@@ -1099,6 +1126,9 @@
 
                 cjsModule = cjsModule && cjsModule.exports;
             } catch (reason) {
+                // log error
+                logError(reason);
+
                 // module rejected: module factory exception
                 module.reject(reason);
             }
@@ -1213,7 +1243,7 @@
             callback = undef;
         }
 
-        return loadModules(context, modules, requires).then(function(modules){
+        return loadModules(context, modules, requires, 'require').then(function(modules){
             return callback && callback.apply(global, modules);
         }, fallback);
     }
