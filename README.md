@@ -1,12 +1,10 @@
 # AMDR (Asynchronous Module Define & Require)
-
 amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
 Size: less than 7KB (3KB gzipped) using UglifyJS.
 
 ----------------------------------------
 
 ## Features:
-
 * Loads CommonJS AMD-formatted javascript modules in parallel.
 * Loads CommonJS Modules (v1.1 when wrapped in a `define()`)
 * Loads non-AMD javascript files in parallel, too.
@@ -14,34 +12,34 @@ Size: less than 7KB (3KB gzipped) using UglifyJS.
 * Tested with IE6+, FireFox 2+, Chrome 10+, Safari 4+, Opera 9.5+
 
 ## API:
+* `define([name String], [dependencies Array], factory Function)`
+* `require(dependencies Array|String[, callback Function[, fallback Function]])`
 
-* <code>define([name String], [dependencies Array], factory Function)</code>
-* <code>require(dependencies Array|String[, callback Function[, fallback Function]])</code>
+## Builtin Modules:
+* "Promise" class
+* "Deferred" class
+* "has" function
 
-## Static Modules:
-* "Promise" function
-* "Deferred" function
-
-## Promise API:
-* <code>Promise(then Function)</code> is a abstract class.
+## Builtin Module "Promise" API:
+* `Promise(then Function)` is a abstract class.
 * instance methods:
-* <code>promise.then(callback Function[, fallback Function[, progback Function]])</code>
-* <code>promise.always(alwaysBack Function)</code>
+* `promise.then(callback Function[, fallback Function[, progback Function]])`
+* `promise.always(alwaysBack Function)`
 * static methods: (implements Promise/A)
-* <code>Promise.resolve(promiseOrValue *)</code>
-* <code>Promise.resolved([value *])</code>
-* <code>Promise.rejected([reason *])</code>
-* <code>Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])</code>
+* `Promise.resolve(promiseOrValue *)`
+* `Promise.resolved([value *])`
+* `Promise.rejected([reason *])`
+* `Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])`
 
-## Deferred API:
-* <code>Deferred()</code> is a class, implements Promise/A.
+## Builtin Module "Deferred" API:
+* `Deferred()` is a class, implements Promise/A.
 * instance methods:
-* <code>deferred.promise</code> a promise instance (implemented Promise/A).
-* <code>deferred.resolve([value *])</code> resolve promise.
-* <code>deferred.reject([reason *])</code> reject promise.
-* <code>deferred.notify([info *])</code> fires progbacks.
-* <code>deferred.state()</code> returns "padding", "resolved" or "rejected"
+* `deferred.promise` a promise instance (implemented Promise/A).
+* `deferred.resolve([value *])` resolve promise.
+* `deferred.reject([reason *])` reject promise.
+* `deferred.notify([info *])` fires progbacks.
+* `deferred.state()` returns "padding", "resolved" or "rejected"
 
-## Module "has" API:
-* <code>has(feature String) Boolean</code>
-* <code>has.add(feature String, definition Boolean|Function)</code>
+## Builtin Module "has" API:
+* `has(feature String) Boolean`
+* `has.add(feature String, definition Boolean|Function)`
