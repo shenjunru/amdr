@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.0b2 (sha1: 80efc35251f711d05606c4469c0da95d29e79ee8)
+ * AMDR 1.0b2 (sha1: 6bf182abf071ed534f64dd5cff6111cd70e858bf)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -220,7 +220,7 @@
 
     function logError(error, memo){
         if (console) { (console.error || console.log).call(
-            console, memo || error.stack || e.stacktrace || error
+            console, memo || error.stack || error.stacktrace || error
         ); }
     }
 
