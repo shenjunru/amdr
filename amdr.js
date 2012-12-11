@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.0b2 (sha1: 6bf182abf071ed534f64dd5cff6111cd70e858bf)
+ * AMDR 1.0b3 (sha1: 016998af60923375d70b06f9dc19bc31ad775eac)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -363,6 +363,7 @@
         config.config  = {};
         config.urlBase = '';
         config.urlArgs = '';
+        config.urlExt  = '.js';
         config.pathNow = path || '';
         config.pathMap = {};
         config.timeout = 7;
@@ -693,7 +694,7 @@
      */
     function toUrl(name, config){
         var index = name.lastIndexOf('.'),
-        ext   = '';
+            ext   = '';
 
         if (-1 !== index) {
             ext = name.substring(index, name.length);
@@ -710,14 +711,15 @@
      *
      * @param {String} name - normalized module name
      * @param {Config} config - config instance
-     * @param {String} [ext='.js'] - resource extension
+     * @param {String} [ext] - resource extension
      * @return {String}
      * @private
      */
     function nameToUrl(name, config, ext){
         var url = name;
+
         if (!rExtUrl.test(url)) {
-            url += (ext || '.js');
+            url += (ext || config.urlExt);
         }
         if (config.urlBase && !rAbsUrl.test(name)) {
             url = config.urlBase + url;
@@ -725,6 +727,7 @@
         if (config.urlArgs) {
             url += (rQizMark.test(url) ? '&' : '?') + config.urlArgs;
         }
+
         return url;
     }
 
