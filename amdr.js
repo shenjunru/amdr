@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.0b3 (sha1: 016998af60923375d70b06f9dc19bc31ad775eac)
+ * AMDR 1.1 (sha1: 2028c2db7a665030baf05bb6f01f928f296fa40a)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -61,11 +61,17 @@
     var // element: document
         document    = global.document,
 
+        // flag: is not in the browser environment
+        notBrowser  = undef === document || !isFunction(document.createElement),
+
+        // flag: is in the web worker environment
+        isWebWorker = notBrowser && isFunction(importScripts),
+
         // element: resource insert point
-        insertPoint = firstNodeOfTagName('head') || firstNodeOfTagName('script'),
+        insertPoint = notBrowser || firstNodeOfTagName('head') || firstNodeOfTagName('script'),
 
         // element: features testing element
-        testElement  = document.createElement('script'),
+        testElement = notBrowser ? {} : document.createElement('script'),
 
         // event: onload
         eventOnload = 'onload',
@@ -248,13 +254,44 @@
     // =========================================================================
 
     /**
+     * loads module by importScripts()
+     *
+     * @param {Module} module - module instance
+     * @param {String} emitter - emitter name
+     * @param {String} [url] - custom url
+     */
+    function scriptImport(module, emitter, url){
+        // sets module as executing
+        module.padding = false;
+
+        try {
+            // importing
+            global.importScripts(url || nameToUrl(module.name, module.context.config));
+            // import successful
+            scriptComplete(module, undef);
+        } catch (reason) {
+            // import failed
+            scriptComplete(module, undef, makeError({
+                message: 'import failure.',
+                parent:  emitter,
+                source:  module.name
+            }));
+        }
+    }
+
+    /**
      * loads module by script element
      *
      * @param {Module} module - module instance
+     * @param {String} emitter - emitter name
      * @param {String} [url] - custom url
      * @private
      */
     function scriptLoad(module, emitter, url){
+        if (isWebWorker) {
+            return scriptImport(module, emitter, url);
+        }
+
         var script = document.createElement('script');
 
         // sets module as executing
@@ -299,16 +336,18 @@
      * script loaded callback
      *
      * @param {Module} module
-     * @param {Element} script
+     * @param {Element} [script]
      * @param {Error} [error]
      * @private
      */
     function scriptComplete(module, script, error){
-        // removes listeners
-        script[eventOnfail] = script[eventOnload] = '';
+        if (undef !== script) {
+            // removes listeners
+            script[eventOnfail] = script[eventOnload] = '';
 
-        // removes form collection
-        delete actScripts[module.name];
+            // removes form collection
+            delete actScripts[module.name];
+        }
 
         if (error) {
             // module rejected: script load failure
@@ -1248,7 +1287,10 @@
 
         return loadModules(context, modules, requires, 'require').then(function(modules){
             return callback && callback.apply(global, modules);
-        }, fallback);
+        }, function(reason){
+            fallback && fallback.apply(global);
+            throw reason;
+        });
     }
 
     /**

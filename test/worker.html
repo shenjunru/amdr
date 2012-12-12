@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test: amdr.js in WebWorker</title>
+    <link href="qunit/qunit.css" rel="stylesheet">
+    <script src="qunit/qunit.js"></script>
+</head>
+<body>
+<div id="qunit"></div>
+<script>
+    'use strict';
+
+    var $callback = function(){},
+        $fallback = function(reason){
+            expect(1);
+            ok(false, reason.message || reason);
+            start();
+        };
+
+    var worker = new Worker('worker.js');
+    worker.addEventListener('error', function(event){
+        event.preventDefault();
+        console.log(event);
+    }, false);
+    worker.addEventListener('message', function(event){
+        var data = event.data;
+        switch (data.action) {
+            case 'ready':
+                if (true === data.returns) {
+                    QUnit.start();
+                } else {
+                    throw data.returns;
+                }break;
+            case 'callback':
+                $callback.apply(window, data.returns); break;
+            case 'fallback':
+                $fallback.apply(window, data.returns); break;
+        }
+    }, false);
+
+    function callWorker(action, callback, fallback){
+        worker.postMessage(String(action));
+        if (callback) {
+            var _callback = $callback;
+            $callback = function(){
+                $callback = _callback;
+                callback.apply(this, arguments);
+            };
+        }
+        if (fallback) {
+            var _fallback = $fallback;
+            $fallback = function(){
+                $fallback = _fallback;
+                fallback.apply(this, arguments);
+            };
+        }
+    }
+
+    QUnit.config.autostart = false;
+    test('require.config()', 2, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            callback(worker.require.config({
+                urlBase: 'test/..', // fake, point to current path
+                pathMap: {
+                    'runner': 'runner.js',
+                    'foo': './foo/../', // fake, point to current path
+                    'bar': 'bar/..'     // fake, point to current path
+                }
+            }));
+        }, function(returns){
+            ok('' !== returns.urlBase, 'config.urlBase: ' + returns.urlBase);
+            ok(!!returns.pathMap.runner, 'config.pathMap.runner: ' + returns.pathMap.runner);
+            start();
+        });
+    });
+
+    test('require "require"', 1, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            worker.require('require', function(require){
+                callback('function' === typeof require);
+            }, fallback);
+        }, function(returns){
+            ok(returns, 'require is function');
+            start();
+        });
+    });
+
+    test('require "exports"', 1, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            worker.require('exports', function(exports){
+                callback('object' === typeof exports);
+            }, fallback);
+        }, function(returns){
+            ok(returns, 'exports is object');
+            start();
+        });
+    });
+
+    test('require "runner"', 1, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            worker.require('runner', function(){
+                callback('object' === typeof worker.runner);
+            }, fallback);
+        }, function(returns){
+            ok(returns, 'runner loaded!');
+            start();
+        });
+    });
+
+    test('require non-existent', 1, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            worker.require('non-existent', function(){
+                // ie 6-8 will goes here.
+                callback(false);
+            }, function(){
+                callback(true);
+            });
+        }, function(returns){
+            ok(returns, returns ? 'fallback fired!' : 'exports is object');
+            start();
+        });
+    });
+
+    test('require abs path', 1, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            var path = location.pathname.split('/').slice(0, -1).join('/');
+            worker.require(path = path + '/bar-define.php?id=abs', function(exports){
+                callback('bar-abs' === exports, 'require: ' + path);
+            }, fallback);
+        }, function(result, message){
+            ok(result, message);
+            start();
+        });
+    });
+
+    test('require 10 modules', 2, function(){
+        stop();
+        callWorker(function(worker, callback, fallback){
+            for (var i = 0, deps = [], exps = []; i < 10; i++) {
+                deps.push('foo/foo-define.php?id=' + i + '&r=' + Math.random());
+                exps.push('foo-' + i + '#bar-' + i);
+            }
+            worker.require(deps, function(){
+                callback(
+                    deps.length, arguments.length,
+                    exps.join(','), [].join.call(arguments, ',')
+                );
+            }, fallback);
+        }, function(expectSize, exportSize, expectValues, exportValues){
+            ok(expectSize === exportSize, 'args amount: ' + expectSize);
+            ok(expectValues === exportValues, 'exports: ' + exportValues);
+            start();
+        }, function(reason){
+            expect(1);
+            ok('context timeout.' === reason.message, reason);
+            start();
+        });
+    });
+</script>
+</body>
+</html>
