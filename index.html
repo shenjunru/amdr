@@ -32,7 +32,7 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <p>amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
-Size: less than 7KB (3KB gzipped) using UglifyJS.</p>
+Size: less than 8KB (&gt;4KB gzipped) using UglifyJS.</p>
 
 <hr><h2>Features:</h2>
 
@@ -47,12 +47,13 @@ Size: less than 7KB (3KB gzipped) using UglifyJS.</p>
 <ul>
 <li><code>define([name String], [dependencies Array], factory Function)</code></li>
 <li><code>require(dependencies Array|String[, callback Function[, fallback Function]])</code></li>
-</ul><h2>Static Modules:</h2>
+</ul><h2>Builtin Modules:</h2>
 
 <ul>
-<li>"Promise" function</li>
-<li>"Deferred" function</li>
-</ul><h2>Module "Promise" API:</h2>
+<li>"Promise" class</li>
+<li>"Deferred" class</li>
+<li>"has" function</li>
+</ul><h2>Builtin Module "Promise" API:</h2>
 
 <ul>
 <li>
@@ -65,7 +66,7 @@ Size: less than 7KB (3KB gzipped) using UglifyJS.</p>
 <li><code>Promise.resolved([value *])</code></li>
 <li><code>Promise.rejected([reason *])</code></li>
 <li><code>Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])</code></li>
-</ul><h2>Module "Deferred" API:</h2>
+</ul><h2>Builtin Module "Deferred" API:</h2>
 
 <ul>
 <li>
@@ -81,11 +82,13 @@ Size: less than 7KB (3KB gzipped) using UglifyJS.</p>
 <code>deferred.notify([info *])</code> fires progbacks.</li>
 <li>
 <code>deferred.state()</code> returns "padding", "resolved" or "rejected"</li>
-</ul><h2>Module "has" API:</h2>
+</ul><h2>Builtin Module "has" API:</h2>
 
 <ul>
-<li><code>has(feature String) Boolean</code></li>
-<li><code>has.add(feature String, definition Boolean|Function)</code></li>
+<li>
+<code>has(feature String) Boolean</code></li>
+<li>
+<code>has.add(feature String, definition Boolean|Function)</code></li>
 </ul>
       </section>
     </div>
