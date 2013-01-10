@@ -47,7 +47,48 @@ Size: less than 8KB (&gt;4KB gzipped) using UglifyJS.</p>
 <ul>
 <li><code>define([name String], [dependencies Array], factory Function)</code></li>
 <li><code>require(dependencies Array|String[, callback Function[, fallback Function]])</code></li>
-</ul><h2>Builtin Modules:</h2>
+<li><code>require.config([config Object])</code></li>
+</ul><h2>Config:</h2>
+
+<ul>
+<li>
+<code>config.config</code> - config object for module</li>
+<li>
+<code>config.timeout</code> - number of loading timeout in second (default is <code>7</code>)</li>
+<li>
+<code>config.debug</code> - boolean of amdr.js debug state (default is <code>false</code>)</li>
+<li>
+<code>config.urlBase</code> - string of base path (ex. <code>'/path/to/base'</code>)</li>
+<li>
+<code>config.urlArgs</code> - string of request parameter(s) to be appended (ex. <code>'key1=value1&amp;key2=value2'</code>)</li>
+<li>
+<code>config.urlExt</code> - string of default file extension (default is <code>'.js'</code>)</li>
+<li>
+<code>config.pathMap</code> - object of path mappings for module names not found directly under baseUrl.<br>
+The path settings are assumed to be relative to baseUrl, unless the paths setting starts with a "/" or has a URL protocol in it ("like http:").</li>
+</ul><h2>Example:</h2>
+
+<pre><code>&lt;script src="scripts/amdr.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  require.config({
+    timeout: 15,
+    urlBase: '/another/path',
+    pathMap: {
+      'foo': '../bar/'
+    }
+  });
+  require(['foo/module', 'my/module', 'a.js', 'b.js'],
+    function(fooModule, myModule) {
+        //This function will be called when all the dependencies
+        //listed above are loaded. Note that this function could
+        //be called before the page is loaded.
+        //This callback is optional.
+    }
+  );
+&lt;/script&gt;
+</code></pre>
+
+<h2>Builtin Modules:</h2>
 
 <ul>
 <li>"Promise" class</li>
@@ -85,10 +126,8 @@ Size: less than 8KB (&gt;4KB gzipped) using UglifyJS.</p>
 </ul><h2>Builtin Module "has" API:</h2>
 
 <ul>
-<li>
-<code>has(feature String) Boolean</code></li>
-<li>
-<code>has.add(feature String, definition Boolean|Function)</code></li>
+<li><code>has(feature String) Boolean</code></li>
+<li><code>has.add(feature String, definition Boolean|Function)</code></li>
 </ul>
       </section>
     </div>
