@@ -14,6 +14,37 @@ Size: less than 8KB (>4KB gzipped) using UglifyJS.
 ## API:
 * `define([name String], [dependencies Array], factory Function)`
 * `require(dependencies Array|String[, callback Function[, fallback Function]])`
+* `require.config([config Object])`
+
+## Config:
+* `config.config` - config object for module
+* `config.timeout` - number of loading timeout in second (default is `7`)
+* `config.debug` - boolean of amdr.js debug state (default is `false`)
+* `config.urlBase` - string of base path (ex. '/path/to/base')
+* `config.urlArgs` - string of request parameter(s) to be appended (ex. 'key1=value1&key2=value2')
+* `config.urlExt` - string of default file extension (default is `'.js'`)
+* `config.pathMap` - object of path mappings for module names not found directly under baseUrl.<br>
+  The path settings are assumed to be relative to baseUrl, unless the paths setting starts with a "/" or has a URL protocol in it ("like http:").
+
+## Example:
+    <script src="scripts/amdr.js"></script>
+    <script>
+      require.config({
+        timeout: 15,
+        urlBase: '/another/path',
+        pathMap: {
+          'foo': '../bar/'
+        }
+      });
+      require(['foo/module', 'my/module', 'a.js', 'b.js'],
+        function(fooModule, myModule) {
+            //This function will be called when all the dependencies
+            //listed above are loaded. Note that this function could
+            //be called before the page is loaded.
+            //This callback is optional.
+        }
+      );
+    </script>
 
 ## Builtin Modules:
 * "Promise" class
