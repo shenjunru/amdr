@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1 (sha1: 2028c2db7a665030baf05bb6f01f928f296fa40a)
+ * AMDR 1.1.1 (sha1: e3a6e0969be96db3d84151f76f0f63075666f5a4)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -62,10 +62,10 @@
         document    = global.document,
 
         // flag: is not in the browser environment
-        notBrowser  = undef === document || !isFunction(document.createElement),
+        notBrowser  = undef === document || undef === document.createElement,
 
         // flag: is in the web worker environment
-        isWebWorker = notBrowser && isFunction(importScripts),
+        isWebWorker = notBrowser && isFunction(global.importScripts),
 
         // element: resource insert point
         insertPoint = notBrowser || firstNodeOfTagName('head') || firstNodeOfTagName('script'),
