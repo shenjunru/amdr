@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.1 (sha1: e3a6e0969be96db3d84151f76f0f63075666f5a4)
+ * AMDR 1.1.2 (sha1: 3648015a80b3002e51c0025f9b186cc6da8a17ab)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -60,6 +60,9 @@
 
     var // element: document
         document    = global.document,
+
+        // object: global console object
+        console     = global.console,
 
         // flag: is not in the browser environment
         notBrowser  = undef === document || undef === document.createElement,
@@ -786,6 +789,7 @@
         // cleans 'path/..'
         var index, offset = 1, syms = name.split(sSlash);
         while ( 0 < (index = indexOf.call(syms, '..', offset)) ) {
+            /*jshint laxbreak:true*/
             rDotSkip.test(syms[index -= 1])
                 ? offset++
                 : syms.splice(index, 2);
@@ -818,6 +822,7 @@
                     for (i = syms.length; i > 0; i--) {
                         path = syms.slice(0, i).join(sSlash);
                         if (hasOwn.call(maps, path)) {
+                            /*jshint boss:true*/
                             if (path = maps[path]) {
                                 syms.splice(0, i, path); // replace
                             } else {
@@ -1056,7 +1061,8 @@
             modules = modules.concat(requires);
         }
 
-        if (count = length = modules.length) {
+        /*jshint boss:true*/
+        if (count = (length = modules.length)) {
             exports.length = offset;
             for (index = 0; next && index < length; index++) {
                 if (name = modules[index]) {
@@ -1074,6 +1080,7 @@
 
         // resolves context
         function callback(module){
+            /*jshint laxbreak:true*/
             // saves to exports array or require hash
             (isString(module.index)
                 ? context.requires
@@ -1160,13 +1167,13 @@
 
         // resolves module
         function callback(exports){
-            try {
-                var // executes module factory
-                    returns = factory.apply(global, exports),
-                    cjsExports = context.exports,
-                    cjsModule  = context.module;
+            var cjsExports = context.exports,
+                cjsModule  = context.module,
+                returns;
 
-                cjsModule = cjsModule && cjsModule.exports;
+            try {
+                // executes module factory
+                returns = factory.apply(global, exports);
             } catch (reason) {
                 // log error
                 logError(reason);
@@ -1177,6 +1184,7 @@
 
             // priority CommonJS 'module.exports' / 'exports',
             // or use factory returns
+            cjsModule = cjsModule && cjsModule.exports;
             if (undef !== cjsModule && cjsExports !== cjsModule) {
                 returns = cjsModule;
             } else if (undef === returns && cjsExports) {
@@ -1269,14 +1277,14 @@
      * @param {String|Array} modules - module name(s), separated by ','
      * @param {Function} callback - fired after all required modules defined,
      *   passes all modules exports as parameters by the given order
-     * @param {Function} fallback -
+     * @param {Function} fallback - function(reason)
      * @return {Promise}
      * @private
      */
-    function require(modules, callback, fallback){
+    function require(modules, callback, fallback, context /*internal only*/){
         modules = String(modules).replace(rTrim, '').split(rComma);
 
-        var context = new Context(globalConfig),
+        var context = context || new Context(globalConfig),
             requires;
 
         if (isFunction(callback)) {
@@ -1288,7 +1296,9 @@
         return loadModules(context, modules, requires, 'require').then(function(modules){
             return callback && callback.apply(global, modules);
         }, function(reason){
-            fallback && fallback.apply(global);
+            if (isFunction(fallback)) {
+                fallback.call(global, reason);
+            }
             throw reason;
         });
     }
@@ -1332,8 +1342,16 @@
      * @private
      */
     function cjsRequire(context){
-        return function(path){
-            return context.requires[path];
+        return function(path, callback, fallback){
+            if (path in context.requires) {
+                if (isFunction(callback)) {
+                    callback(context.requires[path]);
+                } else {
+                    return context.requires[path];
+                }
+            } else {
+                require(path, callback, fallback, context);
+            }
         };
     }
 

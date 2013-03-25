@@ -47,13 +47,19 @@ Size: less than 8KB (>4KB gzipped) using UglifyJS.
 
 
 ## CommonJS Modules:
-* `require(path String)` require other module under current module's context
+* `require(path String[, callback Function[, fallback Function]])` require other module under current module's context
 * `exports` module exports object
 * `module` module object
     * `module.exports` - object same as the `exports` module
     * `module.config()` - returns "config" property form the global config
     * `module.toUrl(path String[, config Object])` - converts a module name to the url by current module's context or the given config
 
+
+## Circular Dependency
+Use `require` module inside of a module to load a dynamic module.
+This can help to solve some circular dependency issue.
+
+----------------------------------------
 
 ## Builtin Modules:
 * "Promise" class
