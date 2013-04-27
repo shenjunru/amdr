@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.3 (sha1: 3112c090786e6f46f00a4e8edb0409580b8532db)
+ * AMDR 1.1.4 (sha1: 41f2656225d21985dc9b0584bf3ac69d12de687f)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -1285,9 +1285,9 @@
      */
     function require(modules, callback, fallback, context /*internal only*/){
         modules = String(modules).replace(rTrim, '').split(rComma);
+        context = new Context(context ? context.config : globalConfig);
 
-        var context = context || new Context(globalConfig),
-            requires;
+        var requires;
 
         if (isFunction(callback)) {
             requires = extractFactoryRequires(modules, callback);
