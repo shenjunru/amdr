@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.4 (sha1: 41f2656225d21985dc9b0584bf3ac69d12de687f)
+ * AMDR 1.1.5 (sha1: 0c01d09131c3af0cd717b2a07471057a6ed71b7e)
  * (c) 2012 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
@@ -1257,8 +1257,11 @@
         }
 
         if (scriptState) {
-            module = getCurrentMoudle();
-            amdDefineQ[module.name].push([name, dependencies, requires, factory]);
+            if (module = getCurrentMoudle()) {
+                amdDefineQ[module.name].push([name, dependencies, requires, factory]);
+            } else {
+                moduleDefine(name, dependencies, requires, factory, new Context(globalConfig).getModule(name));
+            }
         } else {
             amdDefineQ.push([name, dependencies, requires, factory]);
         }
