@@ -1,6 +1,6 @@
 /*!
- * AMDR 1.1.5 (sha1: 0c01d09131c3af0cd717b2a07471057a6ed71b7e)
- * (c) 2012 Shen Junru. MIT License.
+ * AMDR 1.1.6 (sha1: debc7f463caffde0f7eea28f76d83d25924db213)
+ * (c) 2012~2014 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
 
@@ -96,9 +96,6 @@
         // collection: script ready states
         readyStates = { 'interactive': scriptParse, 'loaded': 1, 'complete': 1 },
 
-        // collection: loading scripts
-        actScripts = {},
-
         // collection: local defined modules, by name
         locModules = {},
 
@@ -107,6 +104,12 @@
 
         // queue: defer amd module define arguments
         amdDefineQ = scriptState ? {} : [],
+
+        // collection: loading scripts
+        actScripts = {},
+
+        // state: loading scripts count
+        runScripts = 0,
 
         // config: global config
         globalConfig = new Config(),
@@ -304,6 +307,7 @@
 
         // adds to collection
         actScripts[module.name] = script;
+        runScripts++;
         if (scriptState) {
             amdDefineQ[module.name] = [];
         }
@@ -352,6 +356,7 @@
 
             // removes form collection
             delete actScripts[module.name];
+            runScripts--;
         }
 
         if (error) {
@@ -486,6 +491,7 @@
         module.context = new Context(config);
         module.defined = false;
         module.padding = true;
+        module.exports = undef;
         module.name    = name;
     }
 
@@ -952,7 +958,9 @@
         }
 
         // gets module/loader instance
-        module = context.getModule(currName);
+        module = context.getModule(
+            !loader || pipeName ? currName : loader.name + '!' + currName
+        );
 
         // module's promise will be returned
         promise = module.promise;
@@ -974,7 +982,7 @@
                     }
 
                     // loads piped module
-                    loadModule(context, pipeName, exports, emitter)
+                    loadModule(context, pipeName, module, emitter)
                         .then(deferred.resolve, deferred.reject);
                 } else {
                     deferred.reject(makeError({
@@ -994,7 +1002,7 @@
 
             if (module.padding) {
                 module.padding = false;
-                loader.load(currName, {
+                loader.exports.load(currName, {
                     resolve: module.resolve,
                     reject:  module.reject,
                     config: function(){
@@ -1194,7 +1202,7 @@
             }
 
             // module resolved
-            module.resolve(returns);
+            module.resolve(module.exports = returns);
         }
 
         // rejects module
@@ -1212,58 +1220,57 @@
      * @param {Object|Function} factory - an object or a function with returns
      * @private
      */
-    function define(name_, dependencies_, factory_){
+    function define(name, dependencies, factory){
         var arity = arguments.length,
-            dependencies = cjsModules,
-            requires, name, factory, module;
+            module = scriptState && getCurrentMoudle(),
+            _dependencies = cjsModules,
+            _name, _factory, requires;
 
         // fixes arguments
         if (2 === arity) {
-            if (isString(name_)) {
-                name = name_;
+            if (isString(name)) {
+                _name = name;
             } else {
-                dependencies = name_;
+                _dependencies = name;
             }
-            factory_ = dependencies_;
+            factory = dependencies;
         } else if (1 === arity) {
-            factory_ = name_;
+            factory = name;
         } else if (3 === arity) {
-            name = name_;
-            dependencies = dependencies_;
+            _name = name;
+            _dependencies = dependencies;
         }
 
-        if (isFunction(factory_)) {
+        if (isFunction(factory)) {
             // fixes dependencies
-            if (cjsModules === dependencies && !factory_.length) {
-                dependencies = '';
+            if (cjsModules === _dependencies && !factory.length) {
+                _dependencies = '';
             }
-            dependencies = dependencies && String(dependencies).replace(rTrim, '');
-            dependencies = dependencies ? dependencies.split(rComma) : [];
+            _dependencies = _dependencies && String(_dependencies).replace(rTrim, '');
+            _dependencies = _dependencies ? _dependencies.split(rComma) : [];
 
             // fixes factory
-            factory = factory_;
-            if (factory.length) {
+            _factory = factory;
+            if (_factory.length) {
                 // extracts requires in the factory
-                requires = extractFactoryRequires(dependencies, factory);
+                requires = extractFactoryRequires(_dependencies, _factory);
             }
         } else {
             // fixes dependencies
-            dependencies = [];
+            _dependencies = [];
 
             // fixes factory
-            factory = function(){
-                return factory_;
+            _factory = function(){
+                return factory;
             };
         }
 
-        if (scriptState) {
-            if (module = getCurrentMoudle()) {
-                amdDefineQ[module.name].push([name, dependencies, requires, factory]);
-            } else {
-                moduleDefine(name, dependencies, requires, factory, new Context(globalConfig).getModule(name));
-            }
+        if (module) {
+            amdDefineQ[module.name].push([_name, _dependencies, requires, _factory]);
+        } else if (0 < runScripts) {
+            amdDefineQ.push([_name, _dependencies, requires, _factory]);
         } else {
-            amdDefineQ.push([name, dependencies, requires, factory]);
+            moduleDefine(_name, _dependencies, requires, _factory, new Context(globalConfig).getModule(_name));
         }
     }
 
@@ -1272,7 +1279,8 @@
      * @type {Object}
      */
     define.amd = {
-        version: '%VERSION%',
+        version: '1.1.6',
+        cache:   amdModules,
         jQuery:  true
     };
 
