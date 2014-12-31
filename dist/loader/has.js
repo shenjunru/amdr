@@ -1,2 +1,2 @@
-/* Condition loader for AMDR (sha1: 2b5131a3d4d5e0340faa78187ef144b2e8cfc1b9) | (c) 2012~2014 Shen Junru. MIT License. | http://github.com/shenjunru/amdr */
-define(function(){"use strict";function n(t){return!0===e[t]}var e={},t=/([^\?]+)\?([^:]*)(?::([^:]+))?/;return n.add=function(t,r){return"function"==typeof r&&(r=r()),"boolean"==typeof r&&(e[t]=r),n},n.load=function(e,t){t.load()},n.normalize=function(e,r){var i=t.exec(e);return i&&(i=n(i[1])?i[2]:i[3]),r(i||"")},n});
+/*! AMDR - Condition loader 1.0.0 (sha1: d621d314b0a1ad527f8ffb46cd3031a8cf72e826) | (c) 2012~2014 Shen Junru. MIT License. | https://github.com/shenjunru/amdr */
+define(function(){"use strict";function a(a){return!0===b[a]}var b={},c=/([^\?]+)\?([^:]*)(?::([^:]+))?/;return a.add=function(c,d){return"function"==typeof d&&(d=d()),"boolean"==typeof d&&(b[c]=d),a},a.load=function(a,b){b.load()},a.normalize=function(b,d){var e=c.exec(b);return e&&(e=a(e[1])?e[2]:e[3]),d(e||"")},a});

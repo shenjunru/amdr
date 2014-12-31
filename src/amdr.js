@@ -1,7 +1,7 @@
 /*!
- * AMDR 1.1.6 (sha1: debc7f463caffde0f7eea28f76d83d25924db213)
+ * AMDR 1.1.7 (sha1: 6efbf5d9443f6b3256175dae5d0d18bcee3520ba)
  * (c) 2012~2014 Shen Junru. MIT License.
- * http://github.com/shenjunru/amdr
+ * https://github.com/shenjunru/amdr
  */
 
 // global exports:
@@ -676,7 +676,7 @@
      * @private
      */
     function promiseResolve(promiseOrValue){
-        if (promiseOrValue instanceof Promise) {
+        if (isFunction(promiseOrValue && promiseOrValue.then)) {
             return promiseOrValue;
         } else {
             return promiseResolved(promiseOrValue);
@@ -739,7 +739,7 @@
      * with given config or current config
      *
      * @param {String} name - name to convert
-     * @param {Object} config - config {@link Config}
+     * @param {Config} config - config {@link Config}
      * @return {String}
      */
     function toUrl(name, config){
@@ -797,10 +797,11 @@
         // cleans 'path/..'
         var index, offset = 1, syms = name.split(sSlash);
         while ( 0 < (index = indexOf.call(syms, '..', offset)) ) {
-            /*jshint laxbreak:true*/
-            rDotSkip.test(syms[index -= 1])
-                ? offset++
-                : syms.splice(index, 2);
+            if (rDotSkip.test(syms[index -= 1])) {
+                offset++;
+            } else {
+                syms.splice(index, 2);
+            }
         }
 
         return syms.join(sSlash);
@@ -889,8 +890,8 @@
      * @return {Module}
      * @private
      */
-    function getCurrentMoudle(id){
-        for (id in actScripts) {
+    function getCurrentModule(){
+        for (var id in actScripts) {
             if (scriptParse === readyStates[actScripts[id].readyState]) {
                 return amdModules[id];
             }
@@ -1222,7 +1223,7 @@
      */
     function define(name, dependencies, factory){
         var arity = arguments.length,
-            module = scriptState && getCurrentMoudle(),
+            module = scriptState && getCurrentModule(),
             _dependencies = cjsModules,
             _name, _factory, requires;
 
@@ -1279,7 +1280,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.6',
+        version: '1.1.7',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1334,9 +1335,11 @@
             }
             // ensures the pathMap is not end in a slash
             // also cleans it
-            if (pathMap) { for (key in pathMap) {
-                pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
-            } }
+            if (pathMap) {
+                for (key in pathMap) {
+                    pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
+                }
+            }
 
             mixObject(globalConfig, config);
         }

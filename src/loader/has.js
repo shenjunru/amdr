@@ -1,7 +1,7 @@
 /*!
- * Condition loader for AMDR (sha1: 2b5131a3d4d5e0340faa78187ef144b2e8cfc1b9)
+ * AMDR - Condition loader 1.0.0 (sha1: d621d314b0a1ad527f8ffb46cd3031a8cf72e826)
  * (c) 2012~2014 Shen Junru. MIT License.
- * http://github.com/shenjunru/amdr
+ * https://github.com/shenjunru/amdr
  */
 
 // API:
