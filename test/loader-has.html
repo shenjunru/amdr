@@ -7,13 +7,6 @@
 </head>
 <body>
 <script>
-    require.config({
-        debug: true,
-        pathMap: {
-            'loader': '../loader'
-        }
-    });
-
     test('load has module', function(){
         stop();
         require('loader/has', function(has){

@@ -1,6 +1,6 @@
 /*!
- * has condition loader for AMDR (sha1: 2b5131a3d4d5e0340faa78187ef144b2e8cfc1b9)
- * (c) 2012 Shen Junru. MIT License.
+ * Condition loader for AMDR (sha1: 2b5131a3d4d5e0340faa78187ef144b2e8cfc1b9)
+ * (c) 2012~2014 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
 

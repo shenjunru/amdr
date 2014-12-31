@@ -8,11 +8,6 @@
 <body>
 <div class="loader-css" style="display: none;">style.php loaded!</div>
 <script>
-    require.config({
-        pathMap: {
-            'loader': '../loader'
-        }
-    });
     asyncTest('load style.php', function(){
         require('loader/css!style.php', callback, resolved).always(always);
     });

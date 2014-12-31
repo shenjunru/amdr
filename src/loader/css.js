@@ -1,6 +1,6 @@
 /*!
  * CSS file loader for AMDR (sha1: 3a30d4518ca1e815a981f3427143f76f2cdd0739)
- * (c) 2012 Shen Junru. MIT License.
+ * (c) 2012~2014 Shen Junru. MIT License.
  * http://github.com/shenjunru/amdr
  */
 
