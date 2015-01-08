@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.7 (sha1: 6efbf5d9443f6b3256175dae5d0d18bcee3520ba)
+ * AMDR 1.1.8 (sha1: f1cdabed3d31455802230c5038cf73f36f782661)
  * (c) 2012~2014 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -461,7 +461,7 @@
      * @param {String} name - module name
      * @return {Module}
      */
-    Context.prototype.getModule = function(name){
+    Context.prototype.getModule = function(name, emitter){
         return amdModules[name] || (amdModules[name] = new Module(
             name, this.config
         ));
@@ -487,6 +487,7 @@
         module.reject  = deferred.reject;
 
         // properties
+        module.emitters = {};
         module.promise = deferred.promise;
         module.context = new Context(config);
         module.defined = false;
@@ -494,6 +495,18 @@
         module.exports = undef;
         module.name    = name;
     }
+
+    /**
+     * adds module emitter name
+     *
+     * @param {String} name - module name
+     * @return {Module}
+     */
+    Module.prototype.addEmitter = function(name){
+        if (null != name && 'require' !== name) {
+            this.emitters[name] = amdModules[name].emitters;
+        }
+    };
 
     /**
      * promise abstract class
@@ -962,6 +975,7 @@
         module = context.getModule(
             !loader || pipeName ? currName : loader.name + '!' + currName
         );
+        module.addEmitter(emitter);
 
         // module's promise will be returned
         promise = module.promise;
@@ -1004,8 +1018,9 @@
             if (module.padding) {
                 module.padding = false;
                 loader.exports.load(currName, {
+                    emitters: module.emitters,
                     resolve: module.resolve,
-                    reject:  module.reject,
+                    reject: module.reject,
                     config: function(){
                         return module.context.config;
                     },
@@ -1072,8 +1087,7 @@
             modules = modules.concat(requires);
         }
 
-        /*jshint boss:true*/
-        if (count = (length = modules.length)) {
+        if (( count = (length = modules.length) )) {
             exports.length = offset;
             for (index = 0; next && index < length; index++) {
                 if (name = modules[index]) {
@@ -1247,7 +1261,7 @@
             if (cjsModules === _dependencies && !factory.length) {
                 _dependencies = '';
             }
-            _dependencies = _dependencies && String(_dependencies).replace(rTrim, '');
+            _dependencies = _dependencies && ('' + _dependencies).replace(rTrim, '');
             _dependencies = _dependencies ? _dependencies.split(rComma) : [];
 
             // fixes factory
@@ -1258,7 +1272,9 @@
             }
         } else {
             // fixes dependencies
-            _dependencies = [];
+            if (cjsModules === _dependencies) {
+                _dependencies = [];
+            }
 
             // fixes factory
             _factory = function(){
@@ -1280,7 +1296,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.7',
+        version: '1.1.8',
         cache:   amdModules,
         jQuery:  true
     };
