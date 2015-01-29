@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.8 (sha1: f1cdabed3d31455802230c5038cf73f36f782661)
+ * AMDR 1.1.9 (sha1: 6a4e935e47b86d5b3026e29dc85abfcb7dcc7955)
  * (c) 2012~2014 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -248,7 +248,7 @@
 
     function makePromiseError(){
         return makeError({
-            message: 'promise fulfilled.',
+            message: 'promise settled.',
             emitter: 'deferred'
         }, true);
     }
@@ -270,7 +270,7 @@
      */
     function scriptImport(module, emitter, url){
         // sets module as executing
-        module.padding = false;
+        module.pending = false;
 
         try {
             // importing
@@ -303,7 +303,7 @@
         var script = document.createElement('script');
 
         // sets module as executing
-        module.padding = false;
+        module.pending = false;
 
         // adds to collection
         actScripts[module.name] = script;
@@ -381,6 +381,7 @@
             }
 
             // resolves module for traditional "browser globals" script
+            // TODO: shimming
             if (!module.defined) {
                 module.defined = true;
                 module.resolve();
@@ -491,7 +492,7 @@
         module.promise = deferred.promise;
         module.context = new Context(config);
         module.defined = false;
-        module.padding = true;
+        module.pending = true;
         module.exports = undef;
         module.name    = name;
     }
@@ -519,7 +520,7 @@
     }
 
     /**
-     * registers a callback, always be fired when promise is fulfilled
+     * registers a callback, always be fired when promise is settled
      *
      * @param {Function} alwaysBack
      * @return {Promise}
@@ -576,13 +577,13 @@
             },
 
             /**
-             * Transition from padding state to fulfilled state,
+             * Transition from pending state to settled state,
              * notifying all listeners of the resolution or rejection.
              *
              * @param {*|Promise} completed the completed value of this deferred
              * @return {Promise}
              */
-            _fulfill = function(completed){
+            _settle = function(completed){
                 var i, l;
 
                 completed = promiseResolve(completed);
@@ -596,7 +597,7 @@
                 }
 
                 // GC
-                _fulfill = listeners = undef;
+                _settle = listeners = undef;
 
                 return completed;
             };
@@ -628,9 +629,9 @@
          * @return {Promise} - a promise for the resolution value
          */
         deferred.resolve = function(value){
-            if (_fulfill) {
+            if (_settle) {
                 state = 'resolved';
-                return _fulfill(value);
+                return _settle(value);
             }
             throw makePromiseError();
         };
@@ -642,9 +643,9 @@
          * @return {Promise}
          */
         deferred.reject = function(reason){
-            if (_fulfill) {
+            if (_settle) {
                 state = 'rejected';
-                return _fulfill(promiseRejected(reason));
+                return _settle(promiseRejected(reason));
             }
             throw makePromiseError();
         };
@@ -656,7 +657,7 @@
          * @param {*} [update] - anything
          */
         deferred.notify = function(update){
-            if (!_fulfill) {
+            if (!_settle) {
                 throw makePromiseError();
             }
             for (var i = 0, l = progbacks.length; i < l; i++) {
@@ -1015,8 +1016,8 @@
         if (loader) {
             // loads module by a loader module
 
-            if (module.padding) {
-                module.padding = false;
+            if (module.pending) {
+                module.pending = false;
                 loader.exports.load(currName, {
                     emitters: module.emitters,
                     resolve: module.resolve,
@@ -1038,7 +1039,7 @@
         } else {
             // loads module in default way
 
-            if (module.padding) {
+            if (module.pending) {
                 scriptLoad(module, emitter);
             }
 
@@ -1186,19 +1187,19 @@
         module.defined = true;
 
         // sets module as executing
-        module.padding = false;
+        module.pending = false;
 
         loadModules(context, dependencies, requires, module.name).then(callback, fallback);
 
         // resolves module
-        function callback(exports){
+        function callback(modules){
             var cjsExports = context.exports,
                 cjsModule  = context.module,
                 returns;
 
             try {
                 // executes module factory
-                returns = factory.apply(global, exports);
+                returns = factory.apply(global, modules);
             } catch (reason) {
                 // log error
                 logError(reason);
@@ -1282,11 +1283,16 @@
             };
         }
 
+        _name = _name && nameNormalize(_name, globalConfig);
+
         if (module) {
+            // amd module in ie browser
             amdDefineQ[module.name].push([_name, _dependencies, requires, _factory]);
-        } else if (0 < runScripts) {
+        } else if (0 < runScripts && isArray(amdDefineQ) && (!_name || _name in actScripts)) {
+            // amd module in other browsers
             amdDefineQ.push([_name, _dependencies, requires, _factory]);
         } else {
+            // global module
             moduleDefine(_name, _dependencies, requires, _factory, new Context(globalConfig).getModule(_name));
         }
     }
@@ -1296,7 +1302,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.8',
+        version: '1.1.9',
         cache:   amdModules,
         jQuery:  true
     };

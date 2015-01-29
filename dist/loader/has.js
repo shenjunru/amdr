@@ -1,2 +1,2 @@
-/*! AMDR - Condition loader 1.0.0 (sha1: d621d314b0a1ad527f8ffb46cd3031a8cf72e826) | (c) 2012~2014 Shen Junru. MIT License. | https://github.com/shenjunru/amdr */
+/*! AMDR - Condition loader 1.0.0 (sha1: d621d314b0a1ad527f8ffb46cd3031a8cf72e826) | (c) 2012~2015 Shen Junru. MIT License. | https://github.com/shenjunru/amdr */
 define(function(){"use strict";function a(a){return!0===b[a]}var b={},c=/([^\?]+)\?([^:]*)(?::([^:]+))?/;return a.add=function(c,d){return"function"==typeof d&&(d=d()),"boolean"==typeof d&&(b[c]=d),a},a.load=function(a,b){b.load()},a.normalize=function(b,d){var e=c.exec(b);return e&&(e=a(e[1])?e[2]:e[3]),d(e||"")},a});
