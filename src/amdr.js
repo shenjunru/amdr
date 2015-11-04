@@ -1,6 +1,6 @@
 /*!
- * AMDR 1.1.9 (sha1: 6a4e935e47b86d5b3026e29dc85abfcb7dcc7955)
- * (c) 2012~2014 Shen Junru. MIT License.
+ * AMDR 1.1.10 (sha1: ffef0fe3663341a742681dfcfbb059fcf62565ea)
+ * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -110,6 +110,9 @@
 
         // state: loading scripts count
         runScripts = 0,
+
+        // state: undetectable module name count
+        unknowns = 0,
 
         // config: global config
         globalConfig = new Config(),
@@ -1180,7 +1183,12 @@
             // do not do more define if already done. can happen if there
             // are multiple define calls for the same module. that is not
             // a normal, common case, but it is also not unexpected.
-            return; // TODO: makeError('duplicate defined.');
+            makeError({
+                message: 'duplicate defined.',
+                parent:  module.name,
+                source:  module.name
+            });
+            return;
         }
 
         // sets module as defined
@@ -1293,6 +1301,14 @@
             amdDefineQ.push([_name, _dependencies, requires, _factory]);
         } else {
             // global module
+            if (!_name && 0 !== _name) {
+                _name = 'unknown/' + (++unknowns);
+                makeError({
+                    message: 'undetectable module name.',
+                    parent:  global,
+                    source:  factory || _name
+                });
+            }
             moduleDefine(_name, _dependencies, requires, _factory, new Context(globalConfig).getModule(_name));
         }
     }
@@ -1302,7 +1318,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.9',
+        version: '1.1.10',
         cache:   amdModules,
         jQuery:  true
     };
