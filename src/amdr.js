@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.10 (sha1: ffef0fe3663341a742681dfcfbb059fcf62565ea)
+ * AMDR 1.1.11 (sha1: f6fb1dff9d776632ae11021b0d45c8faabbfcabd)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -496,6 +496,8 @@
         module.context = new Context(config);
         module.defined = false;
         module.pending = true;
+        module.dependencies = undef;
+        module.factory = undef;
         module.exports = undef;
         module.name    = name;
     }
@@ -1197,6 +1199,12 @@
         // sets module as executing
         module.pending = false;
 
+        // saves module dependencies
+        module.dependencies = dependencies;
+
+        // saves module factory
+        module.factory = factory;
+
         loadModules(context, dependencies, requires, module.name).then(callback, fallback);
 
         // resolves module
@@ -1318,7 +1326,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.10',
+        version: '1.1.11',
         cache:   amdModules,
         jQuery:  true
     };
