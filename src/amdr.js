@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.11 (sha1: f6fb1dff9d776632ae11021b0d45c8faabbfcabd)
+ * AMDR 1.1.12 (sha1: e57b03a4c3ffeb531e83e44a45ee2db33286519c)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -413,14 +413,15 @@
      */
     function Config(path){
         var config = this;
-        config.config  = {};
-        config.urlBase = '';
-        config.urlArgs = '';
-        config.urlExt  = '.js';
-        config.pathNow = path || '';
-        config.pathMap = {};
-        config.timeout = 7;
-        config.debug   = false;
+        config.config   = {};
+        config.urlBase  = '';
+        config.urlArgs  = '';
+        config.urlExt   = '.js';
+        config.pathNow  = path || '';
+        config.pathMap  = {};
+        config.timeout  = 7;
+        config.debug    = false;
+        config.override = false;
     }
 
     /**
@@ -986,6 +987,7 @@
         // module's promise will be returned
         promise = module.promise;
 
+        // loads module when the loader defined
         if (undef !== pipeName /* allows empty string */) {
             // a new deferred instance
             deferred = new Deferred();
@@ -1018,10 +1020,10 @@
             promise = deferred.promise;
         }
 
+        // loads module by the loader module
         if (loader) {
-            // loads module by a loader module
-
             if (module.pending) {
+                // sets module as executing
                 module.pending = false;
                 loader.exports.load(currName, {
                     emitters: module.emitters,
@@ -1037,13 +1039,18 @@
                         return toUrl(name, config || this.config());
                     }
                 });
+                // sets module as defined
+                module.promise.then(function(exports){
+                    module.exports = exports;
+                    module.defined = true;
+                });
             }
 
             // returns a promise
             return promise;
-        } else {
-            // loads module in default way
 
+        // loads module in the default way
+        } else {
             if (module.pending) {
                 scriptLoad(module, emitter);
             }
@@ -1181,7 +1188,7 @@
             context = module.context;
         }
 
-        if (module.defined) {
+        if (module.defined && !globalConfig.override) {
             // do not do more define if already done. can happen if there
             // are multiple define calls for the same module. that is not
             // a normal, common case, but it is also not unexpected.
@@ -1326,7 +1333,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.11',
+        version: '1.1.12',
         cache:   amdModules,
         jQuery:  true
     };
