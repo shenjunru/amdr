@@ -1,6 +1,6 @@
 /*!
- * AMDR - Condition loader 1.0.0 (sha1: d621d314b0a1ad527f8ffb46cd3031a8cf72e826)
- * (c) 2012~2014 Shen Junru. MIT License.
+ * AMDR - Condition loader 1.0.1 (sha1: 8fc6d6d6dd7533ca6ce3ec13694fde5ade95cd50)
+ * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -8,7 +8,7 @@
 //   has(feature String) Boolean
 //   has.add(feature String, definition Boolean|Function)
 
-define(function(){
+define([], function(){
     'use strict';
 
     var features = {},

@@ -1,5 +1,5 @@
 /*!
- * AMDR - CSS file loader 1.0.0 (sha1: a88c753f1423008cfd72f0e2d05d6fc12dd8fde7)
+ * AMDR - CSS file loader 1.0.1 (sha1: 59b96c1968fce58e1041eb6958e64dd83e1d79e7)
  * (c) 2012~2014 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -100,8 +100,9 @@
         }
     });
 
-    define({
-        load: function(name, module){
+    define(['exports'], function(exports){
+
+        exports.load = function(name, module){
             var id = idMap[name] || (idMap[name] = 'amdr-css-' + seed++);
 
             if (!links[id]) {
@@ -113,7 +114,9 @@
                     moduleDefine.call(global, id, name, module);
                 }
             }
-        }
+        };
+
+        return exports;
     });
 
     function moduleDefine(id, name, module){
