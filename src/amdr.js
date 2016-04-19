@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.12 (sha1: e57b03a4c3ffeb531e83e44a45ee2db33286519c)
+ * AMDR 1.1.13 (sha1: ebe113105f58683484395e040ace538e3960ce95)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -495,6 +495,7 @@
         module.emitters = {};
         module.promise = deferred.promise;
         module.context = new Context(config);
+        module.settled = false;
         module.defined = false;
         module.pending = true;
         module.dependencies = undef;
@@ -1043,6 +1044,7 @@
                 module.promise.then(function(exports){
                     module.exports = exports;
                     module.defined = true;
+                    module.settled = true;
                 });
             }
 
@@ -1240,6 +1242,9 @@
                 returns = cjsExports;
             }
 
+            // sets module as settled
+            module.settled = true;
+
             // module resolved
             module.resolve(module.exports = returns);
         }
@@ -1333,7 +1338,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.12',
+        version: '1.1.13',
         cache:   amdModules,
         jQuery:  true
     };
