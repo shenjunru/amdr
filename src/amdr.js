@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.13 (sha1: ebe113105f58683484395e040ace538e3960ce95)
+ * AMDR 1.1.14 (sha1: 7475332e1b22bf1cb9947de311a3263058352386)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -1218,9 +1218,14 @@
 
         // resolves module
         function callback(modules){
-            var cjsExports = context.exports,
-                cjsModule  = context.module,
-                returns;
+            var cjsModule  = context.module,
+                cjsExports = context.exports,
+                cjsReturns, returns;
+
+            // saves module factory
+            if (undef !== cjsModule) {
+                cjsModule.factory = factory;
+            }
 
             try {
                 // executes module factory
@@ -1235,18 +1240,27 @@
 
             // priority CommonJS 'module.exports' / 'exports',
             // or use factory returns
-            cjsModule = cjsModule && cjsModule.exports;
-            if (undef !== cjsModule && cjsExports !== cjsModule) {
-                returns = cjsModule;
+            cjsReturns = cjsModule && cjsModule.exports;
+            if (undef !== cjsReturns && cjsExports !== cjsReturns) {
+                returns = cjsReturns;
             } else if (undef === returns && cjsExports) {
                 returns = cjsExports;
+            }
+
+            // saves module exports
+            module.exports = returns;
+            if (undef !== cjsModule) {
+                context.module.exports = returns;
+            }
+            if (undef !== cjsExports) {
+                context.exports = returns;
             }
 
             // sets module as settled
             module.settled = true;
 
             // module resolved
-            module.resolve(module.exports = returns);
+            module.resolve(returns);
         }
 
         // rejects module
@@ -1338,7 +1352,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.13',
+        version: '1.1.14',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1450,6 +1464,9 @@
     function cjsModule(context){
         // TODO: ensures properties/methods
         return context.module || (context.module = {
+            /** @type {Function} - module factory */
+            factory: undef,
+
             /** @type {Object} - module exports */
             exports: cjsExports(context),
 
