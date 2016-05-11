@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.14 (sha1: 7475332e1b22bf1cb9947de311a3263058352386)
+ * AMDR 1.1.15 (sha1: b39f3d189639f28da6acbcbbd63e0ba3dbe6a939)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -422,6 +422,9 @@
         config.timeout  = 7;
         config.debug    = false;
         config.override = false;
+        config.normalize = function(name, config, piping){
+            return name;
+        };
     }
 
     /**
@@ -955,7 +958,7 @@
      *
      * @param {Context} context - module context
      * @param {String} name - module name
-     * @param {Number|String} index - index in the context
+     * @param {Number|String|Module} index - number as index in the context, string or module is for module piping
      * @param {String} emitter - emitter name
      * @return {Promise} - module promise
      * @private
@@ -966,7 +969,8 @@
         }
 
         var loader   = isNaN(index) && index,
-            resource = nameParse(name, context.config),
+            destName = loader ? name : globalConfig.normalize(name, context.config, isNaN(index)),
+            resource = nameParse(destName, context.config),
             currName = resource.name,
             pipeName = resource.pipe,
             module, promise, deferred;
@@ -975,7 +979,7 @@
             return promiseRejected(makeError({
                 message: 'module name empty.',
                 parent:  emitter,
-                source:  name
+                source:  destName
             })).then(fallback);
         }
 
@@ -1012,7 +1016,7 @@
                     deferred.reject(makeError({
                         message: '"load()" undefined.',
                         parent:  emitter,
-                        source:  name
+                        source:  destName
                     }));
                 }
             }, deferred.reject);
@@ -1352,7 +1356,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.14',
+        version: '1.1.15',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1411,6 +1415,11 @@
                 for (key in pathMap) {
                     pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
                 }
+            }
+
+            // ensures the normalize is a function
+            if (!isFunction(config.normalize)) {
+                config.normalize = globalConfig.normalize;
             }
 
             mixObject(globalConfig, config);
