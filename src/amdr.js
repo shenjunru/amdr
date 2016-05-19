@@ -422,7 +422,16 @@
         config.timeout  = 7;
         config.debug    = false;
         config.override = false;
-        config.normalize = function(name, config, piping){
+
+        /**
+         * rewrites module name
+         *
+         * @param {String} name - normalized module name
+         * @param {Config} config - context config
+         * @param {Boolean} pipe - pipe mode
+         * @return {String}
+         */
+        config.rewrite = function(name, config, pipe){
             return name;
         };
     }
@@ -969,7 +978,7 @@
         }
 
         var loader   = isNaN(index) && index,
-            destName = loader ? name : globalConfig.normalize(name, context.config, isNaN(index)),
+            destName = loader ? name : globalConfig.rewrite(name, context.config, isNaN(index)),
             resource = nameParse(destName, context.config),
             currName = resource.name,
             pipeName = resource.pipe,
@@ -1417,9 +1426,9 @@
                 }
             }
 
-            // ensures the normalize is a function
-            if (!isFunction(config.normalize)) {
-                config.normalize = globalConfig.normalize;
+            // ensures the rewrite is a function
+            if (!isFunction(config.rewrite)) {
+                config.rewrite = globalConfig.rewrite;
             }
 
             mixObject(globalConfig, config);
