@@ -12,7 +12,23 @@
         pathMap: {
             'jquery': 'http://code.jquery.com/jquery-latest.min.js',
             'foo': './foo/../', // fake, point to current path
-            'bar': 'bar/..'     // fake, point to current path
+            'bar': 'bar/..',     // fake, point to current path
+            'non-1': 'non-module-1',
+            'non-2': 'non-module-2'
+        },
+        shim: {
+            'non-1': function(){
+                return oNonModule1;
+            },
+            'non-2': function(){
+                return oNonModule2;
+            }
+        },
+        rewrite: function(name, config, pipe){
+            if ('non-2' === name) {
+                return 'non-1';
+            }
+            return name
         }
     });
 
@@ -79,6 +95,20 @@
         }, function(reason){
             expect(1);
             ok('context timeout.' === reason.message, reason);
+            start();
+        });
+    });
+
+    asyncTest('require non-module-1 by shim', 1, function(){
+        require(['non-1'], function(module){
+            deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
+            start();
+        });
+    });
+
+    asyncTest('require non-module-2 rewrite to non-module-1', 1, function(){
+        require(['non-2'], function(module){
+            deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
             start();
         });
     });

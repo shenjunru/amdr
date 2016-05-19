@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.1.15 (sha1: b39f3d189639f28da6acbcbbd63e0ba3dbe6a939)
+ * AMDR 1.2.0 (sha1: b6c1260be8ccae0d3ae93b2f294632659c6750e9)
  * (c) 2012~2015 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -116,6 +116,9 @@
 
         // config: global config
         globalConfig = new Config(),
+
+        // object: empty
+        plainObject = {},
 
         // regexp: comma around spaces
         rComma = /\s*,\s*/g,
@@ -384,10 +387,20 @@
             }
 
             // resolves module for traditional "browser globals" script
-            // TODO: shimming
             if (!module.defined) {
+                var exports, shim = globalConfig.shim[module.name];
                 module.defined = true;
-                module.resolve();
+                if (isFunction(shim)) {
+                    try {
+                        module.exports = exports = shim();
+                        module.settled = true;
+                        module.resolve(exports);
+                    } catch (error) {
+                        module.reject(error);
+                    }
+                } else {
+                    module.resolve();
+                }
             }
         }
     }
@@ -419,6 +432,7 @@
         config.urlExt   = '.js';
         config.pathNow  = path || '';
         config.pathMap  = {};
+        config.shim     = {};
         config.timeout  = 7;
         config.debug    = false;
         config.override = false;
@@ -426,7 +440,7 @@
         /**
          * rewrites module name
          *
-         * @param {String} name - normalized module name
+         * @param {String} name - unnormalized module name
          * @param {Config} config - context config
          * @param {Boolean} pipe - pipe mode
          * @return {String}
@@ -1365,7 +1379,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.1.15',
+        version: '1.2.0',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1412,6 +1426,7 @@
         if (config) {
             var urlBase = config.urlBase,
                 pathMap = config.pathMap,
+                modShim = config.shim,
                 key;
 
             // ensures the urlBase ends in a slash
@@ -1422,7 +1437,9 @@
             // also cleans it
             if (pathMap) {
                 for (key in pathMap) {
-                    pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
+                    if (!plainObject.hasOwnProperty(key)) {
+                        pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
+                    }
                 }
             }
 
@@ -1431,7 +1448,21 @@
                 config.rewrite = globalConfig.rewrite;
             }
 
+            // define shim later
+            if (modShim) {
+                delete config.shim;
+            }
+
             mixObject(globalConfig, config);
+
+            // ensures the shim definitions
+            if (modShim) {
+                for (key in modShim) {
+                    if (!plainObject.hasOwnProperty(key) && isFunction(modShim[key])) {
+                        globalConfig.shim[nameNormalize(key, globalConfig)] = modShim[key];
+                    }
+                }
+            }
         }
         return globalConfig;
     };
