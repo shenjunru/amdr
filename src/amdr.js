@@ -1,6 +1,6 @@
 /*!
- * AMDR 1.2.0 (sha1: b6c1260be8ccae0d3ae93b2f294632659c6750e9)
- * (c) 2012~2015 Shen Junru. MIT License.
+ * AMDR 1.2.1 (sha1: 421192728e53c1dd3f046c0e8b01e8f0d5fd0e42)
+ * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -64,6 +64,30 @@
         // object: global console object
         console     = global.console,
 
+        // function: reference of setTimeout function
+        setTimeout  = global.setTimeout,
+
+        // function: reference of Object hasOwnProperty function
+        hasOwn      = Object.prototype.hasOwnProperty,
+
+        // function: reference of Object toString function
+        toString    = Object.prototype.toString,
+
+        // function: reference of Array indexOf function
+        indexOf     = Array.prototype.indexOf || function(object, offset){
+            var length = this.length;
+
+            offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
+            for (; offset < length; offset++) {
+                // skip accessing in sparse arrays
+                if (offset in this && object === this[offset]) {
+                    return offset;
+                }
+            }
+
+            return -1;
+        },
+
         // flag: is not in the browser environment
         notBrowser  = undef === document || undef === document.createElement,
 
@@ -99,14 +123,17 @@
         // collection: local defined modules, by name
         locModules = {},
 
-        // collection: created amd modules, by full path
+        // collection: (browser) created amd modules, by full path
         amdModules = {},
 
-        // queue: defer amd module define arguments
-        amdDefineQ = scriptState ? {} : [],
-
-        // collection: loading scripts
+        // collection: (browser) loading scripts
         actScripts = {},
+
+        // queue: (browser) defer amd module define arguments (browser)
+        amdScriptQ = [],
+
+        // queue: (worker) loading modules
+        amdImportQ = [],
 
         // state: loading scripts count
         runScripts = 0,
@@ -167,26 +194,9 @@
 
         sSlash   = '/',
 
-        cjsModules = 'require,exports,module',
+        sRequire = 'require',
 
-        // function: reference of Object hasOwnProperty function
-        hasOwn = Object.prototype.hasOwnProperty,
-
-        // function: reference of Array indexOf function
-        indexOf = Array.prototype.indexOf || function(object, offset){
-            var length = this.length;
-
-            offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
-            for (; offset < length; offset++) {
-                // skip accessing in sparse arrays
-                if (offset in this && object === this[offset]) {
-                    return offset;
-                }
-            }
-
-            return -1;
-        };
-
+        cjsModules = 'require,exports,module';
 
     // features detections
     // =========================================================================
@@ -197,25 +207,20 @@
     // forces using script.readyState
     // see note: script.onload
     scriptState = isIE || scriptState;
+    if (scriptState) {
+        amdScriptQ = {};
+    }
 
 
     // utils
     // =========================================================================
 
-    function isArray(obj){
-        return obj instanceof Array;
+    function isFunction(object){
+        return '[object Function]' === toString.call(object);
     }
 
-    function isFunction(obj){
-        return 'function' === typeof obj;
-    }
-
-    function isString(obj){
-        return 'string' === typeof obj;
-    }
-
-    function isObject(obj){
-        return 'object' === typeof obj;
+    function isString(object){
+        return '[object String]' === toString.call(object);
     }
 
     function mixObject(target, source){
@@ -224,9 +229,9 @@
             for (key in source) {
                 if (hasOwn.call(source, key)) {
                     value = source[key];
-                    if (isArray(value)) {
-                        value = value.concat();
-                    } else if (isObject(value)) {
+                    if (value instanceof Array || '[object Array]' === toString.call(value)) {
+                        value = value.slice();
+                    } else if ('[object Object]' === toString.call(value)) {
                         value = mixObject(mixObject({}, target[key]), value);
                     }
                     target[key] = value;
@@ -275,6 +280,9 @@
      * @param {String} [url] - custom url
      */
     function scriptImport(module, emitter, url){
+        // adds module to queue
+        amdImportQ.push(module);
+
         // sets module as executing
         module.pending = false;
 
@@ -290,6 +298,12 @@
                 parent:  emitter,
                 source:  module.name
             }));
+        }
+
+        // cleanups
+        var entry = amdImportQ.pop();
+        if (entry && entry !== module) {
+            amdImportQ.push(entry);
         }
     }
 
@@ -315,7 +329,7 @@
         actScripts[module.name] = script;
         runScripts++;
         if (scriptState) {
-            amdDefineQ[module.name] = [];
+            amdScriptQ[module.name] = [];
         }
 
         // adds 'onload' listener
@@ -370,7 +384,7 @@
             module.reject(error);
         } else {
             // async module define
-            var params, queue = amdDefineQ;
+            var params, queue = amdScriptQ;
 
             if (scriptState) {
                 queue = queue[module.name];
@@ -537,7 +551,7 @@
      * @return {Module}
      */
     Module.prototype.addEmitter = function(name){
-        if (null != name && 'require' !== name) {
+        if (null != name && sRequire !== name && amdModules.hasOwnProperty(name)) {
             this.emitters[name] = amdModules[name].emitters;
         }
     };
@@ -955,7 +969,7 @@
      */
     function extractFactoryRequires(dependencies, factory){
         var requires = [], offset = 0, source, params;
-        while ( -1 < (offset = indexOf.call(dependencies, 'require', offset)) ) {
+        while ( -1 < (offset = indexOf.call(dependencies, sRequire, offset)) ) {
             if (undef === source) {
                 source = String(factory).replace(rComment, '');
                 params = source.replace(rFnParams, '$1').replace(rTrim, '').split(rComma);
@@ -981,21 +995,23 @@
      *
      * @param {Context} context - module context
      * @param {String} name - module name
-     * @param {Number|String|Module} index - number as index in the context, string or module is for module piping
+     * @param {Number|String} index - number as index in the context, string as inner required module name
+     * @param {|Module} loader - module loader
      * @param {String} emitter - emitter name
+     * @param {Boolean} frozen - frozen module names
      * @return {Promise} - module promise
      * @private
      */
-    function loadModule(context, name, index, emitter){
+    function loadModule(context, name, index, loader, emitter, frozen){
         if (name in locModules) {
-            return promiseResolved(locModules[name](context)).then(callback);
+            return promiseResolved(locModules[name](context, emitter)).then(callback);
         }
 
-        var loader   = isNaN(index) && index,
-            destName = loader ? name : globalConfig.rewrite(name, context.config, isNaN(index)),
-            resource = nameParse(destName, context.config),
+        var destName = loader || frozen ? name : globalConfig.rewrite(name, context.config, !!loader),
+            resource = nameParse(destName, context.config, loader),
             currName = resource.name,
             pipeName = resource.pipe,
+            asLoader = undef !== pipeName, // allows empty string
             module, promise, deferred;
 
         if (!currName) {
@@ -1003,12 +1019,12 @@
                 message: 'module name empty.',
                 parent:  emitter,
                 source:  destName
-            })).then(fallback);
+            })).then(null, fallback);
         }
 
         // gets module/loader instance
         module = context.getModule(
-            !loader || pipeName ? currName : loader.name + '!' + currName
+            loader && undef === pipeName ? loader.name + '!' + currName : currName
         );
         module.addEmitter(emitter);
 
@@ -1016,15 +1032,15 @@
         promise = module.promise;
 
         // loads module when the loader defined
-        if (undef !== pipeName /* allows empty string */) {
+        if (asLoader) {
             // a new deferred instance
             deferred = new Deferred();
 
-            // loads resource when module<loader> is resolved
+            // loads module when loader is resolved
             promise.then(function(exports){
-                if (exports && exports.load) {
+                if (exports && isFunction(exports.load)) {
                     // normalizes resource name
-                    if (exports.normalize) {
+                    if (isFunction(exports.normalize)) {
                         pipeName = exports.normalize(pipeName, function(name){
                             return nameNormalize(name, context.config);
                         });
@@ -1032,8 +1048,8 @@
                         pipeName = nameNormalize(pipeName, context.config);
                     }
 
-                    // loads piped module
-                    loadModule(context, pipeName, module, emitter)
+                    // loads pipe module
+                    loadModule(context, pipeName, index, module, sRequire === emitter ? name : emitter, frozen)
                         .then(deferred.resolve, deferred.reject);
                 } else {
                     deferred.reject(makeError({
@@ -1048,25 +1064,27 @@
             promise = deferred.promise;
         }
 
-        // loads module by the loader module
-        if (loader) {
+        // loads module by the module<loader>
+        if (loader && !asLoader) {
             if (module.pending) {
                 // sets module as executing
                 module.pending = false;
                 loader.exports.load(currName, {
                     emitters: module.emitters,
-                    resolve: module.resolve,
-                    reject: module.reject,
+                    resolve:  module.resolve,
+                    reject:   module.reject,
+                    name:     module.name,
                     config: function(){
                         return module.context.config;
                     },
                     load: function(url){
                         scriptLoad(module, emitter, url);
+                        return module.promise;
                     },
                     toUrl: function(name, config){
                         return toUrl(name, config || this.config());
                     }
-                });
+                }, emitter);
                 // sets module as defined
                 module.promise.then(function(exports){
                     module.exports = exports;
@@ -1075,7 +1093,7 @@
                 });
             }
 
-            // returns a promise
+            // returns the pipe module promise
             return promise;
 
         // loads module in the default way
@@ -1084,7 +1102,12 @@
                 scriptLoad(module, emitter);
             }
 
-            // returns a promise
+            // returns the middle promise (case: b!c i n a!b!c)
+            if (loader && asLoader) {
+                return promise;
+            }
+
+            // returns the final promise
             return promise.then(callback, fallback);
         }
 
@@ -1115,10 +1138,11 @@
      * @param {Array} modules - required module names
      * @param {Array} [requires] - inner required module names
      * @param {String} emitter - emitter name
+     * @param {Boolean} frozen - frozen module names
      * @return {Promise} - context promise
      * @private
      */
-    function loadModules(context, modules, requires, emitter){
+    function loadModules(context, modules, requires, emitter, frozen){
         var exports = [],
             next    = true,
             offset  = modules.length,
@@ -1132,8 +1156,8 @@
         if (( count = (length = modules.length) )) {
             exports.length = offset;
             for (index = 0; next && index < length; index++) {
-                if (name = modules[index]) {
-                    loadModule(context, name, index < offset ? index : name, emitter)
+                if ((name = modules[index])) {
+                    loadModule(context, name, index < offset ? index : name, undef, emitter, frozen)
                         .then(callback, fallback);
                 }
             }
@@ -1147,12 +1171,8 @@
 
         // resolves context
         function callback(module){
-            /*jshint laxbreak:true*/
-            // saves to exports array or require hash
-            (isString(module.index)
-                ? context.requires
-                : exports
-            )[module.index] = module.exports;
+            // saves exports to array or require hash
+            (isString(module.index) ? context.requires : exports)[module.index] = module.exports;
 
             if (0 === --count && !timeout) {
                 // clears timeout
@@ -1241,7 +1261,7 @@
         // saves module factory
         module.factory = factory;
 
-        loadModules(context, dependencies, requires, module.name).then(callback, fallback);
+        loadModules(context, dependencies, requires, globalConfig.rewrite(module.name, context.config, false), false).then(callback, fallback);
 
         // resolves module
         function callback(modules){
@@ -1356,19 +1376,23 @@
 
         if (module) {
             // amd module in ie browser
-            amdDefineQ[module.name].push([_name, _dependencies, requires, _factory]);
-        } else if (0 < runScripts && isArray(amdDefineQ) && (!_name || _name in actScripts)) {
+            amdScriptQ[module.name].push([_name, _dependencies, requires, _factory]);
+        } else if (!scriptState && (0 < runScripts) && (!_name || _name in actScripts)) {
             // amd module in other browsers
-            amdDefineQ.push([_name, _dependencies, requires, _factory]);
+            amdScriptQ.push([_name, _dependencies, requires, _factory]);
         } else {
-            // global module
+            // global define / worker import module
             if (!_name && 0 !== _name) {
-                _name = 'unknown/' + (++unknowns);
-                makeError({
-                    message: 'undetectable module name.',
-                    parent:  global,
-                    source:  factory || _name
-                });
+                if (isWebWorker && 0 < amdImportQ.length) {
+                    _name = amdImportQ[amdImportQ.length - 1].name;
+                } else {
+                    _name = 'unknown/' + (++unknowns);
+                    makeError({
+                        message: 'undetectable module name.',
+                        parent:  global,
+                        source:  factory || _name
+                    });
+                }
             }
             moduleDefine(_name, _dependencies, requires, _factory, new Context(globalConfig).getModule(_name));
         }
@@ -1379,7 +1403,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.2.0',
+        version: '1.2.1',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1388,31 +1412,33 @@
      * requires module(s)
      *
      * @param {String|Array} modules - module name(s), separated by ','
-     * @param {Function} callback - fired after all required modules defined,
+     * @param {Function?} [callback] - fired after all required modules defined,
      *   passes all modules exports as parameters by the given order
-     * @param {Function} fallback - function(reason)
+     * @param {Function?} [fallback] - function(reason)
+     * @param {Config} [config=global] - internal use
+     * @param {String} [emitter="require"] - internal use
+     * @param {Boolean} [frozen=false] - internal use
      * @return {Promise}
      * @private
      */
-    function require(modules, callback, fallback, context /*internal only*/){
-        modules = String(modules).replace(rTrim, '').split(rComma);
-        context = new Context(context ? context.config : globalConfig);
-
+    function require(modules, callback, fallback, config, emitter, frozen){
+        var _modules = String(modules).replace(rTrim, '').split(rComma);
+        var _context = new Context(config instanceof Config ? config : globalConfig);
+        var _emitter = isString(emitter) ? emitter : sRequire;
         var requires;
 
         if (isFunction(callback)) {
-            requires = extractFactoryRequires(modules, callback);
-        } else {
-            callback = undef;
+            requires = extractFactoryRequires(_modules, callback);
         }
 
-        return loadModules(context, modules, requires, 'require').then(function(modules){
-            return callback && callback.apply(global, modules);
+        return loadModules(_context, _modules, requires, _emitter, true === frozen).then(function(modules){
+            return isFunction(callback) ? callback.apply(global, modules) : modules;
         }, function(reason){
             if (isFunction(fallback)) {
-                fallback.call(global, reason);
+                return fallback.call(global, reason);
+            } else {
+                throw reason;
             }
-            throw reason;
         });
     }
 
@@ -1475,10 +1501,11 @@
      * module 'require' factory
      *
      * @param {Context} context
+     * @param {String} emitter
      * @return {Function}
      * @private
      */
-    function cjsRequire(context){
+    function cjsRequire(context, emitter){
         return function(path, callback, fallback){
             if (path in context.requires) {
                 if (isFunction(callback)) {
@@ -1487,7 +1514,7 @@
                     return context.requires[path];
                 }
             } else {
-                require(path, callback, fallback, context);
+                require(path, callback, fallback, context.config, emitter, true);
             }
         };
     }
