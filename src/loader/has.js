@@ -1,6 +1,6 @@
 /*!
- * AMDR - Condition loader 1.0.1 (sha1: 8fc6d6d6dd7533ca6ce3ec13694fde5ade95cd50)
- * (c) 2012~2015 Shen Junru. MIT License.
+ * AMDR - Condition loader 1.0.2 (sha1: d1d848127f5f56dcde47bbd201cf546ee9ab75ad)
+ * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -12,11 +12,13 @@ define([], function(){
     'use strict';
 
     var features = {},
-        rHasName = /([^\?]+)\?([^:]*)(?::([^:]+))?/;
+        rHasName = /([^\?]+)\?([^:]+)(?::([^:].*))?/;
 
     function has(name){
         return true === features[name];
     }
+
+    has.version = '1.0.2';
 
     has.add = function(name, definition){
         if ('function' === typeof definition) {
@@ -29,7 +31,7 @@ define([], function(){
     };
 
     // as a loader
-    has.load = function(name, module){
+    has.load = function(name, module, emitter){
         module.load();
     };
 
