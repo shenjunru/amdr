@@ -119,6 +119,7 @@ module.exports = function(grunt) {
 
 
     // Define tasks.
-    grunt.registerTask('default', ['version', 'uglify', 'replace']);
+    grunt.registerTask('default', ['build']);
+    grunt.registerTask('build', ['version', 'uglify', 'replace']);
 
 };
