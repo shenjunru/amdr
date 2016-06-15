@@ -1,7 +1,10 @@
-document.write(
-    '<link href="qunit/qunit.css" rel="stylesheet">',
-    '<script src="qunit/qunit.js"></script>',
-    '<script src="../dist/amdr.js"></script>',
-    '<script>require.config({ pathMap: { "loader": "../dist/loader" }});<\/script>',
-    '<div id="qunit"></div>'
-);
+require.config({
+    timeout: 20,
+    urlBase: 'test/..', // fake, point to current path
+    pathMap: {
+        "loader": "../src/loader",
+        'runner': 'runner.js',
+        'foo': './foo/../', // fake, point to current path
+        'bar': 'bar/..'     // fake, point to current path
+    }
+});

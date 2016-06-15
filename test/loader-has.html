@@ -3,36 +3,42 @@
 <head>
     <meta charset="utf-8">
     <title>Test: loader/has</title>
+    <link href="qunit/qunit.css" rel="stylesheet">
+    <script src="qunit/qunit.js"></script>
+    <script src="../src/amdr.js"></script>
     <script src="global.js"></script>
 </head>
 <body>
+<div id="qunit"></div>
 <script>
-    test('load has module', function(){
-        stop();
+(function(){
+
+    var c_test = false;
+
+    QUnit.asyncTest('load has module', 2, function(assert){
         require('loader/has', function(has){
-            has.add('test', true);
-            callback(has);
-        }, fallback).always(always);
+            QUnit.ok(true, 'loader is loaded.');
+            has.add('test', c_test = true);
+            assert.ok(true, 'condition <test> is true.');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    test('load css by "has" condition', function(){
-      stop();
-        require('loader/has!test'
-            + '?loader/css!//static.jquery.com/files/rocker/css/reset.css'
-            + ':loader/css!//static.jquery.com/files/rocker/css/none.css'
-            , callback, fallback
-        ).always(always);
+    QUnit.asyncTest('load css by "has" condition', 2, function(assert){
+        require([
+            'loader/has!test',
+            '?loader/css!//static.jquery.com/files/rocker/css/reset.css',
+            ':loader/css!//static.jquery.com/files/rocker/css/none.css'
+        ].join(''), function(exports){
+            assert.ok(c_test, 'style is loaded.');
+            assert.strictEqual(exports && exports.nodeName, 'LINK', 'exports is correct.');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    function callback(exports){
-        ok(true, 'load successfull!');
-    }
-    function fallback(reason){
-        ok(true, reason);
-    }
-    function always(){
-        start();
-    }
+    function fallback(assert){ return function(reason){
+        assert.expect(1); assert.notOk(c_test, reason.message || reason);
+    }; }
+
+}());
 </script>
 </body>
 </html>

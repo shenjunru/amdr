@@ -2,7 +2,7 @@
     'use strict';
 
     function convert(args){
-        return Array.prototype.slice.call(args);
+        return JSON.stringify(Array.prototype.slice.call(args));
     }
 
     function callback(){
@@ -28,7 +28,8 @@
     }, false);
 
     try {
-        worker.importScripts('../amdr.js');
+        worker.importScripts('../src/amdr.js');
+        worker.importScripts('./global.js');
         worker.postMessage({
             action: 'ready',
             returns: true

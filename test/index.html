@@ -3,10 +3,16 @@
 <head>
     <meta charset="utf-8">
     <title>Test: amdr.js in Browser</title>
+    <link href="qunit/qunit.css" rel="stylesheet">
+    <script src="qunit/qunit.js"></script>
+    <script src="../src/amdr.js"></script>
+    <script src="global.js"></script>
 </head>
 <body>
-<script src="global.js"></script>
+<div id="qunit"></div>
 <script>
+(function(){
+
     var config = require.config({
         urlBase: 'test/..', // fake, point to current path
         pathMap: {
@@ -32,92 +38,79 @@
         }
     });
 
-    test('require.config()', 2, function(){
-        ok('' !== config.urlBase, 'config.urlBase: ' + config.urlBase);
-        ok(!!config.pathMap['jquery'], 'config.pathMap');
+    QUnit.test('require.config()', 2, function(assert){
+        assert.ok('' !== config.urlBase, 'config.urlBase: ' + config.urlBase);
+        assert.ok(!!config.pathMap['jquery'], 'config.pathMap');
     });
 
-    asyncTest('require "require"', 2, function(){
+    QUnit.asyncTest('require "require"', 2, function(assert){
         require('require', function(require){
-            ok('function' === typeof require, 'require is function');
-            ok('function' === typeof require('Promise'), 'Promise is function');
-            start();
-        }, fallback);
+            assert.ok('function' === typeof require, 'require is function');
+            assert.ok('function' === typeof require('Promise'), 'Promise is function');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    asyncTest('require "exports"', 1, function(){
+    QUnit.asyncTest('require "exports"', 1, function(assert){
         require('exports', function(exports){
-            ok('object' === typeof exports, 'exports is object');
-            start();
-        }, fallback);
+            assert.ok('object' === typeof exports, 'exports is object');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    asyncTest('require "jquery"', 1, function(){
+    QUnit.asyncTest('require "jquery"', 1, function(assert){
         require('jquery', function(){
-            ok(!!jQuery, 'jQuery loaded!');
-
-            start();
-        }, fallback);
+            assert.ok(!!jQuery, 'jQuery loaded!');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    asyncTest('require non-existent', 1, function(){
+    QUnit.asyncTest('require non-existent', 1, function(assert){
         require('non-existent', function(){
             // ie 6-8 will goes here.
-            ok(false, 'callback fired!');
-            start();
+            assert.ok(/*@cc_on!@*/!1, 'callback fired!');
         }, function(){
-            ok(true, 'fallback fired!');
-            start();
-        });
+            assert.ok(true, 'fallback fired!');
+        }).always(QUnit.start);
     });
 
-    asyncTest('require abs path', 1, function(){
+    QUnit.asyncTest('require abs path', 1, function(assert){
         var path = location.pathname.split('/').slice(0, -1).join('/');
         require(path = path + '/bar-define.php?id=abs', function(exports){
-            ok('bar-abs' === exports, 'require: ' + path);
-            start();
-        }, fallback);
+            assert.ok('bar-abs' === exports, 'require: ' + path);
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    asyncTest('require 10 modules', 2, function(){
+    QUnit.asyncTest('require 10 modules', 2, function(assert){
         for (var i = 0, deps = [], exps = []; i < 10; i++) {
             deps.push('foo/foo-define.php?id=' + i + '&r=' + Math.random());
             exps.push('foo-' + i + '#bar-' + i);
         }
         require(deps, function(){
-            var expect = exps.join(','),
-                actual = [].join.call(arguments, ',');
+            var expect = exps.join(',');
+            var actual = [].join.call(arguments, ',');
 
-            ok(deps.length === arguments.length, 'args amount: ' + deps.length);
-            ok(expect === actual, 'exports: ' + actual);
-
-            start();
+            assert.ok(deps.length === arguments.length, 'args amount: ' + deps.length);
+            assert.ok(expect === actual, 'exports: ' + actual);
         }, function(reason){
-            expect(1);
-            ok('context timeout.' === reason.message, reason);
-            start();
-        });
+            assert.expect(1); assert.ok('context timeout.' === reason.message, reason);
+        }).always(QUnit.start);
     });
 
-    asyncTest('require non-module-1 by shim', 1, function(){
+    QUnit.asyncTest('require non-module-1 by shim', 1, function(assert){
         require(['non-1'], function(module){
-            deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
-            start();
-        });
+            assert.deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    asyncTest('require non-module-2 rewrite to non-module-1', 1, function(){
+    QUnit.asyncTest('require non-module-2 rewrite to non-module-1', 1, function(assert){
         require(['non-2'], function(module){
-            deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
-            start();
-        });
+            assert.deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
+        }, fallback(assert)).always(QUnit.start);
     });
 
-    function fallback(reason){
-        expect(1);
-        ok(false, reason.message || reason);
-        start();
-    }
+    function fallback(assert){ return function(reason){
+        assert.expect(1); assert.ok(false, reason.message || reason);
+    }; }
+
+}());
 </script>
 </body>
 </html>

@@ -3,39 +3,44 @@
 <head>
     <meta charset="utf-8">
     <title>Test: loader/css</title>
+    <link href="qunit/qunit.css" rel="stylesheet">
+    <script src="qunit/qunit.js"></script>
+    <script src="../src/amdr.js"></script>
     <script src="global.js"></script>
 </head>
 <body>
+<div id="qunit"></div>
 <div class="loader-css" style="display: none;">style.php loaded!</div>
 <script>
-    asyncTest('load style.php', function(){
-        require('loader/css!style.php', callback, resolved).always(always);
+(function(){
+
+    QUnit.asyncTest('load style.php', 1, function(assert){
+        require('loader/css!style.php', callback(assert), resolved(assert)).always(QUnit.start);
     });
-    asyncTest('load non-existent.css', function(){
-        require('loader/css!non-existent.css', rejected, fallback).always(always);
+    QUnit.asyncTest('load non-existent.css', 1, function(assert){
+        require('loader/css!non-existent.css', rejected(assert), fallback(assert)).always(QUnit.start);
     });
-    asyncTest('load jquery.com/reset.css', function(){
-        require('loader/css!http://static.jquery.com/files/rocker/css/reset.css', callback, resolved).always(always);
+    QUnit.asyncTest('load jquery.com/reset.css', 1, function(assert){
+        require('loader/css!http://static.jquery.com/files/rocker/css/reset.css', callback(assert), resolved(assert)).always(QUnit.start);
     });
-    asyncTest('load jquery.com/none.css', function(){
-        require('loader/css!http://static.jquery.com/files/rocker/css/none.css', callback, fallback).always(always);
+    QUnit.asyncTest('load jquery.com/none.css', 1, function(assert){
+        require('loader/css!http://static.jquery.com/files/rocker/css/none.css', callback(assert), fallback(assert)).always(QUnit.start);
     });
 
-    function rejected(){
-        ok(false, 'load successfull!');
-    }
-    function resolved(reason){
-        ok(false, reason);
-    }
-    function callback(exports){
-        ok(true, 'load successfull!');
-    }
-    function fallback(reason){
-        ok(true, reason);
-    }
-    function always(){
-        start();
-    }
+    function rejected(assert){ return function(){
+        assert.ok(false, 'load successfull!');
+    }; }
+    function resolved(assert){  return function(reason){
+        assert.ok(false, reason);
+    }; }
+    function callback(assert){ return function(){
+        assert.ok(true, 'load successfull!');
+    }; }
+    function fallback(assert){ return function(reason){
+        assert.ok(true, reason);
+    }; }
+
+}());
 </script>
 </body>
 </html>

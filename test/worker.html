@@ -9,15 +9,9 @@
 <body>
 <div id="qunit"></div>
 <script>
-    'use strict';
+(function(){
 
-    var $callback = function(){},
-        $fallback = function(reason){
-            expect(1);
-            ok(false, reason.message || reason);
-            start();
-        };
-
+    var $callback, $fallback;
     var worker = new Worker('worker.js');
     worker.addEventListener('error', function(event){
         event.preventDefault();
@@ -25,96 +19,70 @@
     }, false);
     worker.addEventListener('message', function(event){
         var data = event.data;
-        switch (data.action) {
+        try { switch (data.action) {
             case 'ready':
-                if (true === data.returns) {
-                    QUnit.start();
-                } else {
+                if (true !== data.returns) {
                     throw data.returns;
-                }break;
+                }
+                break;
             case 'callback':
-                $callback.apply(window, data.returns); break;
+                $callback.apply(window, JSON.parse(data.returns)); break;
             case 'fallback':
-                $fallback.apply(window, data.returns); break;
+                $fallback.apply(window, JSON.parse(data.returns)); break;
+        } } catch(e) {
+            throw error;
+        } finally {
+            QUnit.start();
         }
     }, false);
 
-    function callWorker(action, callback, fallback){
+    function callWorker(assert, action, callback, fallback){
+        $callback = callback || function(){
+            assert.expect(1); assert.ok(true, 'default callback.');
+        };
+        $fallback = fallback || function(reason){
+            assert.expect(1); assert.ok(false, reason.message || reason);
+        };
         worker.postMessage(String(action));
-        if (callback) {
-            var _callback = $callback;
-            $callback = function(){
-                $callback = _callback;
-                callback.apply(this, arguments);
-            };
-        }
-        if (fallback) {
-            var _fallback = $fallback;
-            $fallback = function(){
-                $fallback = _fallback;
-                fallback.apply(this, arguments);
-            };
-        }
     }
 
     QUnit.config.autostart = false;
-    test('require.config()', 2, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
-            callback(worker.require.config({
-                urlBase: 'test/..', // fake, point to current path
-                pathMap: {
-                    'runner': 'runner.js',
-                    'foo': './foo/../', // fake, point to current path
-                    'bar': 'bar/..'     // fake, point to current path
-                }
-            }));
-        }, function(returns){
-            ok('' !== returns.urlBase, 'config.urlBase: ' + returns.urlBase);
-            ok(!!returns.pathMap.runner, 'config.pathMap.runner: ' + returns.pathMap.runner);
-            start();
-        });
-    });
 
-    test('require "require"', 1, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require "require"', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             worker.require('require', function(require){
                 callback('function' === typeof require);
             }, fallback);
         }, function(returns){
-            ok(returns, 'require is function');
-            start();
+            assert.expect(1);
+            assert.ok(returns, 'require is function');
         });
     });
 
-    test('require "exports"', 1, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require "exports"', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             worker.require('exports', function(exports){
                 callback('object' === typeof exports);
             }, fallback);
         }, function(returns){
-            ok(returns, 'exports is object');
-            start();
+            assert.expect(1);
+            assert.ok(returns, 'exports is object');
         });
     });
 
-    test('require "runner"', 1, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require "runner"', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             worker.require('runner', function(){
                 callback('object' === typeof worker.runner);
             }, fallback);
         }, function(returns){
-            ok(returns, 'runner loaded!');
-            start();
+            assert.expect(1);
+            assert.ok(returns, 'runner loaded!');
         });
     });
 
-    test('require non-existent', 1, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require non-existent', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             worker.require('non-existent', function(){
                 // ie 6-8 will goes here.
                 callback(false);
@@ -122,27 +90,25 @@
                 callback(true);
             });
         }, function(returns){
-            ok(returns, returns ? 'fallback fired!' : 'exports is object');
-            start();
+            assert.expect(1);
+            assert.ok(returns, returns ? 'fallback fired!' : 'exports is object');
         });
     });
 
-    test('require abs path', 1, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require abs path', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             var path = location.pathname.split('/').slice(0, -1).join('/');
             worker.require(path = path + '/bar-define.php?id=abs', function(exports){
                 callback('bar-abs' === exports, 'require: ' + path);
             }, fallback);
         }, function(result, message){
-            ok(result, message);
-            start();
+            assert.expect(1);
+            assert.ok(result, message);
         });
     });
 
-    test('require 10 modules', 2, function(){
-        stop();
-        callWorker(function(worker, callback, fallback){
+    QUnit.asyncTest('require 10 modules', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
             for (var i = 0, deps = [], exps = []; i < 10; i++) {
                 deps.push('foo/foo-define.php?id=' + i + '&r=' + Math.random());
                 exps.push('foo-' + i + '#bar-' + i);
@@ -154,15 +120,16 @@
                 );
             }, fallback);
         }, function(expectSize, exportSize, expectValues, exportValues){
-            ok(expectSize === exportSize, 'args amount: ' + expectSize);
-            ok(expectValues === exportValues, 'exports: ' + exportValues);
-            start();
+            assert.expect(2);
+            assert.ok(expectSize === exportSize, 'args amount: ' + expectSize);
+            assert.ok(expectValues === exportValues, 'exports: ' + exportValues);
         }, function(reason){
-            expect(1);
-            ok('context timeout.' === reason.message, reason);
-            start();
+            assert.expect(1);
+            assert.ok('context timeout.' === reason.message, reason);
         });
     });
+
+}());
 </script>
 </body>
 </html>
