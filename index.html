@@ -1,54 +1,54 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en-us">
   <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="amdr.js : JavaScript: Asynchronous Module Define &amp; Require" />
-
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>amdr.js</title>
+    <meta charset="UTF-8">
+    <title>amdr.js by shenjunru</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
-
   <body>
+    <section class="page-header">
+      <h1 class="project-name">amdr.js</h1>
+      <h2 class="project-tagline">JavaScript: Asynchronous Module Define &amp; Require</h2>
+      <a href="https://github.com/shenjunru/amdr" class="btn">View on GitHub</a>
+      <a href="https://github.com/shenjunru/amdr/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/shenjunru/amdr/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/shenjunru/amdr">View on GitHub</a>
+    <section class="main-content">
+      <h1>
+<a id="amdr-asynchronous-module-define--require" class="anchor" href="#amdr-asynchronous-module-define--require" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>AMDR (Asynchronous Module Define &amp; Require)</h1>
 
-          <h1 id="project_title">amdr.js</h1>
-          <h2 id="project_tagline">JavaScript: Asynchronous Module Define &amp; Require</h2>
+<p>amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
+Size: less than 10KB (&gt;5KB gzipped) using UglifyJS.</p>
 
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/shenjunru/amdr/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/shenjunru/amdr/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
+<hr>
 
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <p>amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
-Size: less than 8KB (&gt;4KB gzipped) using UglifyJS.</p>
-
-<hr><h2>Features:</h2>
+<h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features:</h2>
 
 <ul>
-<li>Loads CommonJS AMD-formatted javascript modules in parallel.</li>
-<li>Loads CommonJS Modules (v1.1 when wrapped in a <code>define()</code>)</li>
+<li>Loads <a href="http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition" title="AMD Module">CommonJS AMD-formatted javascript modules</a> in parallel.</li>
+<li>Loads <a href="http://wiki.commonjs.org/wiki/Modules/1.1" title="CommonJS Module">CommonJS Modules</a> (wrapped in a <code>define()</code>)</li>
 <li>Loads non-AMD javascript files in parallel, too.</li>
 <li>Supports IE6+, FireFox, Chrome, Safari 3.2+, Opera 9.5+</li>
 <li>Tested with IE6+, FireFox 2+, Chrome 10+, Safari 4+, Opera 9.5+</li>
-</ul><h2>API:</h2>
+</ul>
+
+<h2>
+<a id="basic-api" class="anchor" href="#basic-api" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Basic API:</h2>
 
 <ul>
 <li><code>define([name String], [dependencies Array], factory Function)</code></li>
 <li><code>require(dependencies Array|String[, callback Function[, fallback Function]])</code></li>
 <li><code>require.config([config Object])</code></li>
-</ul><h2>Config:</h2>
+</ul>
+
+<h2>
+<a id="config" class="anchor" href="#config" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Config:</h2>
 
 <ul>
 <li>
@@ -58,63 +58,147 @@ Size: less than 8KB (&gt;4KB gzipped) using UglifyJS.</p>
 <li>
 <code>config.debug</code> - boolean of amdr.js debug state (default is <code>false</code>)</li>
 <li>
-<code>config.urlBase</code> - string of base path (ex. <code>'/path/to/base'</code>)</li>
+<code>config.urlBase</code> - string of base path (ex. '/path/to/base')</li>
 <li>
-<code>config.urlArgs</code> - string of request parameter(s) to be appended (ex. <code>'key1=value1&amp;key2=value2'</code>)</li>
+<code>config.urlArgs</code> - string of request parameter(s) to be appended (ex. 'key1=value1&amp;key2=value2')</li>
 <li>
 <code>config.urlExt</code> - string of default file extension (default is <code>'.js'</code>)</li>
 <li>
-<code>config.pathMap</code> - object of path mappings for module names not found directly under baseUrl.<br>
+<code>config.pathMap</code> - object of path mappings for module names not found directly under baseUrl.
 The path settings are assumed to be relative to baseUrl, unless the paths setting starts with a "/" or has a URL protocol in it ("like http:").</li>
-</ul><h2>Example:</h2>
+</ul>
 
-<pre><code>&lt;script src="scripts/amdr.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  require.config({
-    timeout: 15,
-    urlBase: '/another/path',
-    pathMap: {
-      'foo': '../bar/'
-    }
-  });
-  require(['foo/module', 'my/module', 'a.js', 'b.js'],
-    function(fooModule, myModule) {
-        //This function will be called when all the dependencies
-        //listed above are loaded. Note that this function could
-        //be called before the page is loaded.
-        //This callback is optional.
-    }
-  );
-&lt;/script&gt;
+<h3>
+<a id="example" class="anchor" href="#example" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Example:</h3>
+
+<pre><code>require.config({
+  timeout: 15,
+  urlBase: '/another/path',
+  pathMap: {
+    'foo': '../bar/'
+  }
+});
+require(['foo/module', 'my/module', 'a.js', 'b.js'],
+  function(fooModule, myModule) {
+      //This function will be called when all the dependencies
+      //listed above are loaded. Note that this function could
+      //be called before the page is loaded.
+      //This callback is optional.
+  }
+);
 </code></pre>
 
-<h2>Builtin Modules:</h2>
-
-<ul>
-<li>"Promise" class</li>
-<li>"Deferred" class</li>
-<li>"has" function</li>
-</ul><h2>Builtin Module "Promise" API:</h2>
+<h2>
+<a id="commonjs-modules" class="anchor" href="#commonjs-modules" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>CommonJS Modules:</h2>
 
 <ul>
 <li>
-<code>Promise(then Function)</code> is a abstract class.</li>
-<li>instance methods:</li>
-<li><code>promise.then(callback Function[, fallback Function[, progback Function]])</code></li>
-<li><code>promise.always(alwaysBack Function)</code></li>
-<li>static methods: (implements Promise/A)</li>
+<code>require(path String[, callback Function[, fallback Function]])</code> require other module under current module's context</li>
+<li>
+<code>exports</code> module exports object</li>
+<li>
+<code>module</code> module object
+
+<ul>
+<li>
+<code>module.exports</code> - object same as the <code>exports</code> module</li>
+<li>
+<code>module.config()</code> - returns "config" property form the global config</li>
+<li>
+<code>module.toUrl(path String[, config Object])</code> - converts a module name to the url by current module's context or the given config</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="circular-dependency" class="anchor" href="#circular-dependency" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Circular Dependency</h2>
+
+<p>Use <code>require</code> module inside of a module to load a dynamic module.
+This may help to solve some circular dependency issues.</p>
+
+<hr>
+
+<h2>
+<a id="built-in-module-promise-api" class="anchor" href="#built-in-module-promise-api" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Built-in Module "Promise" API:</h2>
+
+<p><code>Promise(then Function)</code> is a abstract class of <a href="http://wiki.commonjs.org/wiki/Promises/A" title="Promise/A">Promise/A</a>.</p>
+
+<p>The promise represents the <em>eventual outcome</em>, which is either fulfillment (success) and an associated value, or rejection (failure) and an associated <em>reason</em>.
+The promise provides mechanisms for arranging to call a function on its value or reason, and produces a new promise for the result.</p>
+
+<h3>
+<a id="instance-methods" class="anchor" href="#instance-methods" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Instance methods:</h3>
+
+<ul>
+<li>
+<code>promise.then(callback Function[, fallback Function[, progback Function]])</code>
+
+<ul>
+<li>
+<code>callback</code> to be called with the value after <code>promise</code> is fulfilled, or</li>
+<li>
+<code>fallback</code> to be called with the rejection reason after <code>promise</code> is rejected.</li>
+<li>
+<code>progback</code> to be called with any progress updates issued by <code>promise</code>.</li>
+</ul>
+</li>
+<li>
+<code>promise.always(alwaysBack Function)</code>
+
+<ul>
+<li>
+<code>alwaysBack</code> to be called with the value after <code>promise</code> is fulfilled, or with the rejection reason after <code>promise</code> is rejected.</li>
+</ul>
+</li>
+</ul>
+
+<h3>
+<a id="static-methods-implements-promisea" class="anchor" href="#static-methods-implements-promisea" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Static methods: (implements Promise/A)</h3>
+
+<ul>
 <li><code>Promise.resolve(promiseOrValue *)</code></li>
 <li><code>Promise.resolved([value *])</code></li>
 <li><code>Promise.rejected([reason *])</code></li>
-<li><code>Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])</code></li>
-</ul><h2>Builtin Module "Deferred" API:</h2>
+<li>
+<code>Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])</code>
+
+<ul>
+<li>If <code>promiseOrValue</code> is a value, arranges for <code>callback</code> to be called with that value, and returns a promise for the result.</li>
+<li>If <code>promiseOrValue</code> is a promise, arranges for
 
 <ul>
 <li>
-<code>Deferred()</code> is a class, implements Promise/A.</li>
-<li>instance methods:</li>
+<code>callback</code> to be called with the value after <code>promise</code> is fulfilled, or</li>
 <li>
-<code>deferred.promise</code> a promise instance (implemented Promise/A).</li>
+<code>fallback</code> to be called with the rejection reason after <code>promise</code> is rejected.</li>
+<li>
+<code>progback</code> to be called with any progress updates issued by <code>promise</code>.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="built-in-module-deferred-api" class="anchor" href="#built-in-module-deferred-api" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Built-in Module "Deferred" API:</h2>
+
+<p><code>Deferred()</code> is a class, implements <a href="http://wiki.commonjs.org/wiki/Promises/A" title="Promise/A">Promise/A</a>.</p>
+
+<p>A deferred represents an operation whose resolution is <em>pending</em>.
+It has separate <code>promise</code> and <code>resolver</code> parts that can be <em>safely</em> given out to separate groups of consumers and producers, respectively, to allow safe, one-way communication.</p>
+
+<h3>
+<a id="instance-properties" class="anchor" href="#instance-properties" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Instance properties:</h3>
+
+<ul>
+<li>
+<code>deferred.promise</code> a Promise instance (implemented <a href="http://wiki.commonjs.org/wiki/Promises/A" title="Promise/A">Promise/A</a>).</li>
+</ul>
+
+<h3>
+<a id="instance-methods-1" class="anchor" href="#instance-methods-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Instance methods:</h3>
+
+<ul>
 <li>
 <code>deferred.resolve([value *])</code> resolve promise.</li>
 <li>
@@ -123,24 +207,87 @@ The path settings are assumed to be relative to baseUrl, unless the paths settin
 <code>deferred.notify([info *])</code> fires progbacks.</li>
 <li>
 <code>deferred.state()</code> returns "padding", "resolved" or "rejected"</li>
-</ul><h2>Builtin Module "has" API:</h2>
+<li>
+<code>deferred.then([callback Function[, fallback Function[, progback Function]]])</code>.
+
+<ul>
+<li>
+<code>callback</code> to be called with the value after <code>promise</code> is fulfilled, or</li>
+<li>
+<code>fallback</code> to be called with the rejection reason after <code>promise</code> is rejected.</li>
+<li>
+<code>progback</code> to be called with any progress updates issued by <code>promise</code>.</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h2>
+<a id="loader-module-css" class="anchor" href="#loader-module-css" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Loader Module "css":</h2>
+
+<p>This is the css file loader.</p>
+
+<ul>
+<li>Usage: <code>require(['css!path/of/style.css']);</code>
+</li>
+<li>Export: <code>&lt;link&gt;</code> element of the <code>style.css</code>.</li>
+</ul>
+
+<h2>
+<a id="loader-module-has" class="anchor" href="#loader-module-has" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Loader Module "has":</h2>
+
+<p>This is the conditional module loader.</p>
+
+<ul>
+<li>Usage: <code>require(['has!condition?module-a:module-b']);</code>
+</li>
+<li>Export: condition matched module exports.</li>
+<li>API:
 
 <ul>
 <li><code>has(feature String) Boolean</code></li>
 <li><code>has.add(feature String, definition Boolean|Function)</code></li>
 </ul>
-      </section>
-    </div>
+</li>
+</ul>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">amdr.js maintained by <a href="https://github.com/shenjunru">shenjunru</a></p>
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+<h2>
+<a id="loader-module-hot" class="anchor" href="#loader-module-hot" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Loader Module "hot":</h2>
+
+<p>This is the hot module loader.
+No different between uses <code>hot</code> loader and normal way in the first time.
+After <code>hot.unload()</code> be called, only recalls the module factory in next time, will not reload resource.</p>
+
+<ul>
+<li>Usage: <code>require(['hot!module-c']);</code>
+</li>
+<li>Export: target module exports.</li>
+<li>API:
+
+<ul>
+<li>
+<code>hot.unload()</code> - cleans all hot modules exports.</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h2>
+
+<p>This project is released under MIT license.</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/shenjunru/amdr">amdr.js</a> is maintained by <a href="https://github.com/shenjunru">shenjunru</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
       </footer>
-    </div>
 
-              <script type="text/javascript">
+    </section>
+
+            <script type="text/javascript">
             var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
             document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
           </script>
@@ -150,7 +297,6 @@ The path settings are assumed to be relative to baseUrl, unless the paths settin
             pageTracker._trackPageview();
             } catch(err) {}
           </script>
-
 
   </body>
 </html>
