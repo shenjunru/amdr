@@ -1,6 +1,6 @@
 /*!
- * AMDR - CSS file loader 1.0.1 (sha1: 59b96c1968fce58e1041eb6958e64dd83e1d79e7)
- * (c) 2012~2014 Shen Junru. MIT License.
+ * AMDR - CSS file loader 1.0.2 (sha1: 41e8ba36c247c4a9fc34e3e222245c7094bf3882)
+ * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -48,6 +48,12 @@
 
         // element: resource insert point
         insertPoint = firstNodeOfTagName('head') || firstNodeOfTagName('script'),
+
+        // function: reference of setTimeout function
+        setTimeout   = global.setTimeout,
+
+        // function: reference of clearTimeout function
+        clearTimeout = global.clearTimeout,
 
         // flag: browser detecting
         isWebkit = 'webkitAppearance' in document.documentElement.style,
@@ -101,8 +107,11 @@
     });
 
     define(['exports'], function(exports){
+        'use strict';
 
-        exports.load = function(name, module){
+        exports.version = '1.0.2';
+
+        exports.load = function(name, module, emitter){
             var id = idMap[name] || (idMap[name] = 'amdr-css-' + seed++);
 
             if (!links[id]) {
@@ -225,9 +234,9 @@
         }, 0);
     }
 
-    function hasCssRule(sheet){
+    function hasCssRule(link){
         try {
-            var sheet = sheet.sheet || sheet.styleSheet,
+            var sheet = link.sheet || link.styleSheet,
                 rules = sheet.rules || sheet.cssRules;
             return !rules /* Webkit */ || 0 < rules.length;
         } catch(error) {
@@ -236,7 +245,9 @@
         }
     }
 
-    function checkComplete(/* var */id, link, sheet, rules, cross){
+    function checkComplete(){
+        var id, link, sheet, rules, cross;
+
         for (id in queue) {
             cross = isWebkit;
             link = links[id];
