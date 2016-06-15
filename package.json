@@ -26,6 +26,9 @@
     },
     "has": {
       "version": "1.0.2"
+    },
+    "hot": {
+      "version": "1.0.0"
     }
   },
   "main": "dist/amdr.js",
