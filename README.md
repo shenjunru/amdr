@@ -25,7 +25,7 @@ Size: less than 10KB (>5KB gzipped) using UglifyJS.
 * `config.urlBase` - string of base path (ex. '/path/to/base')
 * `config.urlArgs` - string of request parameter(s) to be appended (ex. 'key1=value1&key2=value2')
 * `config.urlExt` - string of default file extension (default is `'.js'`)
-* `config.pathMap` - object of path mappings for module names not found directly under baseUrl.<br>
+* `config.pathMap` - object of path mappings for module names not found directly under baseUrl.
   The path settings are assumed to be relative to baseUrl, unless the paths setting starts with a "/" or has a URL protocol in it ("like http:").
 
 ### Example:
@@ -50,74 +50,96 @@ Size: less than 10KB (>5KB gzipped) using UglifyJS.
 * `require(path String[, callback Function[, fallback Function]])` require other module under current module's context
 * `exports` module exports object
 * `module` module object
-    * `module.exports` - object same as the `exports` module
-    * `module.config()` - returns "config" property form the global config
-    * `module.toUrl(path String[, config Object])` - converts a module name to the url by current module's context or the given config
+  * `module.exports` - object same as the `exports` module
+  * `module.config()` - returns "config" property form the global config
+  * `module.toUrl(path String[, config Object])` - converts a module name to the url by current module's context or the given config
 
 
 ## Circular Dependency
 Use `require` module inside of a module to load a dynamic module.
-This can help to solve some circular dependency issue.
+This may help to solve some circular dependency issues.
 
 ----------------------------------------
 
-## Builtin Modules:
-* "Promise" class
-* "Deferred" class
-* "has" function
-
-
-## Builtin Module "Promise" API:
+## Built-in Module "Promise" API:
 
 `Promise(then Function)` is a abstract class of [Promise/A][3].
 
 The promise represents the *eventual outcome*, which is either fulfillment (success) and an associated value, or rejection (failure) and an associated *reason*.
 The promise provides mechanisms for arranging to call a function on its value or reason, and produces a new promise for the result.
 
-### instance methods:
+### Instance methods:
 * `promise.then(callback Function[, fallback Function[, progback Function]])`
-    * `callback` to be called with the value after `promise` is fulfilled, or
-    * `fallback` to be called with the rejection reason after `promise` is rejected.
-    * `progback` to be called with any progress updates issued by `promise`.
+  * `callback` to be called with the value after `promise` is fulfilled, or
+  * `fallback` to be called with the rejection reason after `promise` is rejected.
+  * `progback` to be called with any progress updates issued by `promise`.
 * `promise.always(alwaysBack Function)`
-    * `alwaysBack` to be called with the value after `promise` is fulfilled, or with the rejection reason after `promise` is rejected.
+  * `alwaysBack` to be called with the value after `promise` is fulfilled, or with the rejection reason after `promise` is rejected.
 
-### static methods: (implements Promise/A)
+### Static methods: (implements Promise/A)
 * `Promise.resolve(promiseOrValue *)`
 * `Promise.resolved([value *])`
 * `Promise.rejected([reason *])`
-* `Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])`<br>
-    If `promiseOrValue` is a value, arranges for `callback` to be called with that value, and returns a promise for the result.<br>
-    If `promiseOrValue` is a promise, arranges for
+* `Promise.when(promiseOrValue *[, callback Function[, fallback Function[, progback Function]]])`
+  * If `promiseOrValue` is a value, arranges for `callback` to be called with that value, and returns a promise for the result.
+  * If `promiseOrValue` is a promise, arranges for
     * `callback` to be called with the value after `promise` is fulfilled, or
     * `fallback` to be called with the rejection reason after `promise` is rejected.
     * `progback` to be called with any progress updates issued by `promise`.
 
 
-## Builtin Module "Deferred" API:
+## Built-in Module "Deferred" API:
 
 `Deferred()` is a class, implements [Promise/A][3].
 
 A deferred represents an operation whose resolution is *pending*.
 It has separate `promise` and `resolver` parts that can be *safely* given out to separate groups of consumers and producers, respectively, to allow safe, one-way communication.
 
-### instance properties:
+### Instance properties:
 * `deferred.promise` a Promise instance (implemented [Promise/A][3]).
 
-### instance methods:
+### Instance methods:
 * `deferred.resolve([value *])` resolve promise.
 * `deferred.reject([reason *])` reject promise.
 * `deferred.notify([info *])` fires progbacks.
 * `deferred.state()` returns "padding", "resolved" or "rejected"
 * `deferred.then([callback Function[, fallback Function[, progback Function]]])`.
-    * `callback` to be called with the value after `promise` is fulfilled, or
-    * `fallback` to be called with the rejection reason after `promise` is rejected.
-    * `progback` to be called with any progress updates issued by `promise`.
+  * `callback` to be called with the value after `promise` is fulfilled, or
+  * `fallback` to be called with the rejection reason after `promise` is rejected.
+  * `progback` to be called with any progress updates issued by `promise`.
 
-## Builtin Module "has" API:
-* `has(feature String) Boolean`
-* `has.add(feature String, definition Boolean|Function)`
+----------------------------------------
 
-[1]: http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition "AMD Module"
-[2]: http://wiki.commonjs.org/wiki/Modules/1.1 "CommonJS Module"
-[3]: http://wiki.commonjs.org/wiki/Promises/A "Promise/A"
+## Loader Module "css":
+This is the css file loader.
+* Usage: `require(['css!path/of/style.css']);`
+* Export: `<link>` element of the `style.css`.
+
+
+## Loader Module "has":
+This is the conditional module loader.
+* Usage: `require(['has!condition?module-a:module-b']);`
+* Export: condition matched module exports.
+* API:
+  * `has(feature String) Boolean`
+  * `has.add(feature String, definition Boolean|Function)`
+
+
+## Loader Module "hot":
+This is the hot module loader.
+No different between uses `hot` loader and normal way in the first time.
+After `hot.unload()` be called, only recalls the module factory in next time, will not reload resource.
+* Usage: `require(['hot!module-c']);`
+* Export: target module exports.
+* API:
+  * `hot.unload()` - cleans all hot modules exports.
+
+----------------------------------------
+
+## License
+This project is released under MIT license.
+
+
+[1]: http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition	"AMD Module"
+[2]: http://wiki.commonjs.org/wiki/Modules/1.1	"CommonJS Module"
+[3]: http://wiki.commonjs.org/wiki/Promises/A	"Promise/A"
