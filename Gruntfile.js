@@ -1,7 +1,7 @@
 /*jshint node:true*/
 module.exports = function(grunt) {
 
-    var banner = '/*! ${NAME} ${VERSION} (sha1: ${SHA})'
+    var banner = '/*! ${name} ${version} (sha1: ${checksum})'
         + ' | (c) 2012~<%= grunt.template.today("yyyy") %> <%= pkg.author.name %>.'
         + ' MIT License. | <%= pkg.homepage %> */\n';
 
@@ -11,7 +11,7 @@ module.exports = function(grunt) {
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         version: version = {
-            amdr: {
+            'amdr': {
                 file: 'src/amdr.js',
                 version: '<%= pkg.version %>'
             },
@@ -25,14 +25,14 @@ module.exports = function(grunt) {
             }
         },
         uglify: {
-            amdr: {
+            'amdr': {
                 src:  'src/amdr.js',
                 dest: 'dist/amdr.js',
                 options: {
                     banner: banner
-                        .replace('${NAME}', 'AMDR')
-                        .replace('${SHA}', '<%= version.amdr.sha %>')
-                        .replace('${VERSION}', '<%= version.amdr.version %>')
+                        .replace('${name}', 'AMDR')
+                        .replace('${checksum}', '<%= version.amdr.checksum %>')
+                        .replace('${version}', '<%= version.amdr.version %>')
                 }
             },
             'css': {
@@ -40,9 +40,9 @@ module.exports = function(grunt) {
                 dest: 'dist/loader/css.js',
                 options: {
                     banner: banner
-                        .replace('${NAME}', 'AMDR - CSS file loader')
-                        .replace('${SHA}', '<%= version.css.sha %>')
-                        .replace('${VERSION}', '<%= version.css.version %>')
+                        .replace('${name}', 'AMDR - CSS file loader')
+                        .replace('${checksum}', '<%= version.css.checksum %>')
+                        .replace('${version}', '<%= version.css.version %>')
                 }
             },
             'has': {
@@ -50,9 +50,9 @@ module.exports = function(grunt) {
                 dest: 'dist/loader/has.js',
                 options: {
                     banner: banner
-                        .replace('${NAME}', 'AMDR - Condition loader')
-                        .replace('${SHA}', '<%= version.has.sha %>')
-                        .replace('${VERSION}', '<%= version.has.version %>')
+                        .replace('${name}', 'AMDR - Condition loader')
+                        .replace('${checksum}', '<%= version.has.checksum %>')
+                        .replace('${version}', '<%= version.has.version %>')
                 }
             }
         },
@@ -75,7 +75,7 @@ module.exports = function(grunt) {
 
         var pattern = /^(\/\*\!\s+\* [a-z -]+)(\s+[\d.]+)?(\s+\(sha1\: [a-z0-9]*\))?\n/i;
         var path = require('path');
-        var task = this.data, sha;
+        var task = this.data, checksum;
 
         if (!grunt.file.exists(task.file)) {
             grunt.log.warn('Source file ' + task.file + ' not found.');
@@ -89,13 +89,17 @@ module.exports = function(grunt) {
         var content = grunt.file.read(task.file);
 
         content = content.replace(pattern, '$1 ' + task.version + ' (sha1: )\n');
-        content = content.replace(/(version:\s*)'[\d.]+'/, "$1'" + task.version + "'");
+        content = content.replace(/((\(c\) )(\d+)~?)\d*/, function(m, $1, $2, $3){
+            var year = '' + (new Date).getFullYear();
+            return $2 + ($3 === year ? $3 : $3 + '~' + year);
+        });
+        content = content.replace(/(version(?::|\s*=)\s*)'(?:\d+\.)+\d+'/, "$1'" + task.version + "'");
 
-        sha = require('crypto').createHash('sha1').update(content).digest('hex');
-        content = content.replace(pattern, '$1 ' + task.version + ' (sha1: ' + sha + ')\n');
-        version[this.target].sha = sha;
+        checksum = require('crypto').createHash('sha1').update(content).digest('hex');
+        content = content.replace(pattern, '$1 ' + task.version + ' (sha1: ' + checksum + ')\n');
+        version[this.target].checksum = checksum;
 
-        grunt.log.ok('Version of "' + task.file + '": ' + task.version + ' / ' + sha);
+        grunt.log.ok('Version of "' + task.file + '": ' + task.version + ' / ' + checksum);
         grunt.file.write(task.file, content);
     });
 
