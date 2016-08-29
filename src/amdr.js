@@ -1,10 +1,10 @@
 /*!
- * AMDR 1.2.1 (sha1: 421192728e53c1dd3f046c0e8b01e8f0d5fd0e42)
+ * AMDR 1.3.0 (sha1: 284537fc0367c00d2a34409d5fb42d5e731239ca)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
-// global exports:
+// Global exports:
 //   define(identifier String, dependencies Array, factory Function|Object)
 //   define(identifier String, factory Function|Object)
 //   define(dependencies Array, factory Function)
@@ -12,10 +12,10 @@
 //   require(module Array|String[, callback Function[, fallback Function]])
 //   require.config([config Object])
 
-// global imports (browser):
+// Global imports (browser):
 //   document {createElement(), getElementsByTagName()}
 
-// defined modules:
+// Defined modules:
 //   require, exports, module - CommonJS modules.
 //   isIE - determines the browser is Internet Explorer.
 //   Promise - Promise abstract class.
@@ -34,19 +34,25 @@
 //     - notify([info *])
 //     - state()
 
-// how to define a loader:
-//   exports.load(name String, module Object)
-//     - name - resource name
-//     - module.resolve(value) - call it when resource load successful
-//     - module.reject(reason) - call it when resource load failed
-//     - module.config() - get module config
-//     - module.load([url String]) - uses default way to load resource
-//     - module.toUrl(name String[, config Object]) - convert name to url by config
-//   export.normalize(name String[, normalize Function]) - optional
+// How to define a plugin:
+//   exports.load(request Object, name String, parent String, parents Object)
+//     This function dose module resource loading, returns a promise or a value.
+//     - request.config - module config
+//     - request.load([name String]) - uses default way to load a sub-module
+//     - request.toUrl(name String, config Config) - convert name to url by config
+//     - name - request module name
+//     - parent - parent module name
+//     - parents - parent module names
+//   export.rewrite(name String, parent String) - optional
+//     This function does dependency name rewriting, returns a string.
+//     - name - request module name
+//     - parent - parent module name
+//   export.normalize(name String, normalize Function) - optional
+//     This function does module name normalizing, returns a string.
 //     - name - name need to be converted
 //     - normalize(name String) - default normalizer
 
-// note:
+// Note:
 //   *script.onerror* does not work in IE 6-8. there is no way to know if the
 //   resource is not availiable. it triggers the onreadystatechange
 //   with a complete state.
@@ -67,6 +73,9 @@
         // function: reference of setTimeout function
         setTimeout  = global.setTimeout,
 
+        // function: reference of clearTimeout function
+        clsTimeout  = global.clearTimeout,
+
         // function: reference of Object hasOwnProperty function
         hasOwn      = Object.prototype.hasOwnProperty,
 
@@ -75,7 +84,7 @@
 
         // function: reference of Array indexOf function
         indexOf     = Array.prototype.indexOf || function(object, offset){
-            var length = this.length;
+            var length = this.length >>> 0;
 
             offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
             for (; offset < length; offset++) {
@@ -87,6 +96,29 @@
 
             return -1;
         },
+
+        map    = Array.prototype.map || function(callback) {
+            var index = 0;
+            var length = this.length >>> 0;
+            var result = new Array(length);
+
+            for (; index < length; index++) {
+                if (index in this) {
+                    result[index] = callback.call(undef, this[index], index, this);
+                }
+            }
+
+            return result;
+        },
+
+        // class: Deferred
+        NPromise    = global.Promise,
+
+        // class: Deferred
+        Deferred    = NPromise ? DeferredNative : DeferredPolyfill,
+
+        // prototype: config prototype
+        ConfigProto = Config.prototype,
 
         // flag: is not in the browser environment
         notBrowser  = undef === document || undef === document.createElement,
@@ -142,7 +174,7 @@
         unknowns = 0,
 
         // config: global config
-        globalConfig = new Config(),
+        configGlobal = new Config(),
 
         // object: empty
         plainObject = {},
@@ -155,7 +187,7 @@
 
         // regexp: extracts function parameters
         // 'function[ name ](parameters)'
-        rFnParams = /^\S+(?:\s*|\s+\S+\s*)\(([^\)]*)\)[\s\S]+$/,
+        rFnParams = /^\S+(?:\s*|\s+\S+\s*)\(([^)]*)\)[\s\S]+$/,
 
         // regexp: removes function comments
         // '// comments' or '/* comments */'
@@ -163,7 +195,7 @@
 
         // regexp: retrieves require() in a function
         // 'require("module")'
-        rRequire = /\s*\((['"])([^'"\(]+)\1\)/.source,
+        rRequire = /\s*\((['"])([^'"(]+)\1\)/.source,
 
         // regexp: absolute url
         // '/path' or 'http://path'
@@ -173,15 +205,15 @@
         // './path' or '../path'
         rRelUrl = /^\.?\.\//,
 
-        // regexp: url has ext
-        rExtUrl = /\?|\.js$/,
-
         // regexp: '/./' path
         rDotPath = /\/\.\//g,
 
         // regexp: resource name
         // 'path/resource', '/resource' or 'resource'
         rResource = /(\/?)[^\/]*$/,
+
+        // regexp: '?' or '#'
+        rQizHash = /[?#]/,
 
         // regexp: end with '/'
         rEndSlash = /\/$/,
@@ -192,11 +224,19 @@
         // regexp: '.' or '..'
         rDotSkip = /\.\.?/,
 
+        // string: slash
         sSlash   = '/',
 
+        // string: require
         sRequire = 'require',
 
-        cjsModules = 'require,exports,module';
+        // string: promise state
+        sPending  = 'pending',
+        sResolved = 'resolved',
+        sRejected = 'rejected',
+
+        // string: default dependencies
+        cjsModules = 'exports,module,require';
 
     // features detections
     // =========================================================================
@@ -206,7 +246,7 @@
     }
     // forces using script.readyState
     // see note: script.onload
-    scriptState = isIE || scriptState;
+    scriptState = isWebWorker ? false : (isIE || scriptState);
     if (scriptState) {
         amdScriptQ = {};
     }
@@ -215,55 +255,90 @@
     // utils
     // =========================================================================
 
+    /**
+     * determines the object is a function
+     *
+     * @param {*} object
+     * @return {boolean}
+     */
     function isFunction(object){
         return '[object Function]' === toString.call(object);
     }
 
+    /**
+     * determines the object is a string
+     *
+     * @param {*} object
+     * @return {boolean}
+     */
     function isString(object){
         return '[object String]' === toString.call(object);
     }
 
-    function mixObject(target, source){
-        if (source) {
-            var key, value;
-            for (key in source) {
-                if (hasOwn.call(source, key)) {
-                    value = source[key];
-                    if (value instanceof Array || '[object Array]' === toString.call(value)) {
-                        value = value.slice();
-                    } else if ('[object Object]' === toString.call(value)) {
-                        value = mixObject(mixObject({}, target[key]), value);
-                    }
-                    target[key] = value;
-                }
+    /**
+     * iterates all properties on a object
+     *
+     * @param {Object} object
+     * @param {function(key, value)} iterator
+     * @param {*} [context]
+     */
+    function iterate(object, iterator, context){
+        if (!object || !isFunction(iterator)) { return; }
+
+        for (var key in object) {
+            if (!hasOwn.call(plainObject, key)) {
+                iterator.call(context, key, object[key]);
             }
         }
-        return target;
     }
 
+    /**
+     * logs a error with memo data.
+     *
+     * @param {Error} error - error object
+     * @param {Object} [memo] - memo data
+     * @return {Error}
+     */
     function logError(error, memo){
-        if (console) { Function.prototype.call.call(
-            console.error || console.log,
-            console,
-            memo || error.stack || error.stacktrace || error
-        ); }
-    }
-
-    function makeError(memo, ignore){
-        var error = new Error(memo.message);
-        if (true !== ignore && globalConfig.debug) {
-            logError(error, memo);
+        if (true === configGlobal.debug) {
+            configGlobal.log(error, memo);
         }
         return error;
     }
 
-    function makePromiseError(){
-        return makeError({
-            message: 'promise settled.',
-            emitter: 'deferred'
-        }, true);
+    /**
+     * creates and logs a error.
+     *
+     * @param {string} memo.message - error message
+     * @param {string} memo.parent - emitter parent
+     * @param {string} memo.source - emitter source
+     * @return {Error}
+     */
+    function makeError(memo){
+        return logError(new Error(memo.message), memo);
     }
 
+    /**
+     * creates a promise error.
+     *
+     * @param {string} method
+     * @param {*} value
+     * @return {Error}
+     */
+    function makePromiseError(method, value){
+        return makeError({
+            message: 'promise settled.',
+            parent: method,
+            source: value
+        });
+    }
+
+    /**
+     * finds element by tag name.
+     *
+     * @param {string} name - tag name
+     * @return {?Element}
+     */
     function firstNodeOfTagName(name){
         return document.getElementsByTagName(name)[0];
     }
@@ -273,29 +348,72 @@
     // =========================================================================
 
     /**
-     * loads module by importScripts()
+     * loads module script file
      *
      * @param {Module} module - module instance
-     * @param {String} emitter - emitter name
-     * @param {String} [url] - custom url
+     * @param {string} parent - emitter name
      */
-    function scriptImport(module, emitter, url){
-        // adds module to queue
-        amdImportQ.push(module);
+    function scriptLoad(module, parent){
+        var timing = module.context.config.timeout;
+        var status = { done: false, time: undef };
+        var script;
 
         // sets module as executing
         module.pending = false;
 
+        // starts request countdown
+        if (isFinite(timing) && 0 < timing) {
+            status.time = setTimeout(function(){
+                // context rejected: timeout
+                scriptComplete(module, status, script, makeError({
+                    message: 'request timeout.',
+                    parent:  parent,
+                    source:  module.name
+                }));
+            }, 1000 * timing);
+        }
+
+        // update request status
+        module.request.then(done, done);
+
+        if (status.done) {
+            return;
+        }
+
+        if (isWebWorker) {
+            script = scriptImport(module, status, parent);
+        } else {
+            script = scriptAttach(module, status, parent);
+        }
+
+        function done(){
+            clsTimeout(status.time);
+            status.done = true;
+        }
+    }
+
+    /**
+     * loads module by importScripts()
+     *
+     * @param {Module} module - module instance
+     * @param {Object} status - status object
+     * @param {string} parent - emitter name
+     * @return {void}
+     */
+    function scriptImport(module, status, parent){
+        // adds module to queue
+        amdImportQ.push(module);
+
         try {
             // importing
-            global.importScripts(url || nameToUrl(module.name, module.context.config));
+            global.importScripts(nameToUrl(module.name, module.context.config));
             // import successful
-            scriptComplete(module, undef);
+            scriptComplete(module, status, undef);
         } catch (reason) {
             // import failed
-            scriptComplete(module, undef, makeError({
+            scriptComplete(module, status, undef, makeError({
                 message: 'import failure.',
-                parent:  emitter,
+                parent:  parent,
                 source:  module.name
             }));
         }
@@ -311,19 +429,12 @@
      * loads module by script element
      *
      * @param {Module} module - module instance
-     * @param {String} emitter - emitter name
-     * @param {String} [url] - custom url
-     * @private
+     * @param {Object} status - status object
+     * @param {string} parent - emitter name
+     * @return {Element} script element
      */
-    function scriptLoad(module, emitter, url){
-        if (isWebWorker) {
-            return scriptImport(module, emitter, url);
-        }
-
+    function scriptAttach(module, status, parent){
         var script = document.createElement('script');
-
-        // sets module as executing
-        module.pending = false;
 
         // adds to collection
         actScripts[module.name] = script;
@@ -334,19 +445,19 @@
 
         // adds 'onload' listener
         script[eventOnload] = catchOnload ? function(){
-            scriptComplete(module, script);
+            scriptComplete(module, status, script);
         } : function(){
             if (readyStates[script.readyState]) {
-                scriptComplete(module, script);
+                scriptComplete(module, status, script);
             }
         };
 
         // adds 'onerror' listener
         // see note: script.onerror
         script[eventOnfail] = function(){
-            scriptComplete(module, script, makeError({
+            scriptComplete(module, status, script, makeError({
                 message: 'load failure.',
-                parent:  emitter,
+                parent:  parent,
                 source:  module.name
             }));
         };
@@ -355,33 +466,33 @@
         script.charset = 'utf-8';
         script.async = script.defer = true;
         script.type = 'text/javascript';
-        script.src = url || nameToUrl(module.name, module.context.config);
+        script.src = nameToUrl(module.name, module.context.config);
 
         // inserts
-        insertPoint.appendChild(script);
+        return insertPoint.appendChild(script);
     }
 
     /**
      * script loaded callback
      *
-     * @param {Module} module
-     * @param {Element} [script]
-     * @param {Error} [error]
-     * @private
+     * @param {Module} module - module instance
+     * @param {Object} status - status object
+     * @param {?Element} script - script element
+     * @param {Error} [error] - error object
      */
-    function scriptComplete(module, script, error){
+    function scriptComplete(module, status, script, error){
         if (undef !== script) {
             // removes listeners
             script[eventOnfail] = script[eventOnload] = '';
 
             // removes form collection
-            delete actScripts[module.name];
-            runScripts--;
+            status.done || delete actScripts[module.name];
+            status.done || runScripts--;
         }
 
         if (error) {
             // module rejected: script load failure
-            module.reject(error);
+            status.done || module.reject(error);
         } else {
             // async module define
             var params, queue = amdScriptQ;
@@ -402,19 +513,7 @@
 
             // resolves module for traditional "browser globals" script
             if (!module.defined) {
-                var exports, shim = globalConfig.shim[module.name];
-                module.defined = true;
-                if (isFunction(shim)) {
-                    try {
-                        module.exports = exports = shim();
-                        module.settled = true;
-                        module.resolve(exports);
-                    } catch (error) {
-                        module.reject(error);
-                    }
-                } else {
-                    module.resolve();
-                }
+                moduleDefine(module.name, [], [], configGlobal.shimMap[module.name], module);
             }
         }
     }
@@ -424,55 +523,143 @@
     // =========================================================================
 
     /**
-     * empty config class for config cloning
-     *
-     * @constructor
-     * @private
-     */
-    function EmptyConfig(){}
-
-    /**
      * config class
      *
-     * @param {String} [path=''] - current path
      * @constructor
-     * @private
      */
-    function Config(path){
-        var config = this;
-        config.config   = {};
-        config.urlBase  = '';
-        config.urlArgs  = '';
-        config.urlExt   = '.js';
-        config.pathNow  = path || '';
-        config.pathMap  = {};
-        config.shim     = {};
-        config.timeout  = 7;
-        config.debug    = false;
-        config.override = false;
-
-        /**
-         * rewrites module name
-         *
-         * @param {String} name - unnormalized module name
-         * @param {Config} config - context config
-         * @param {Boolean} pipe - pipe mode
-         * @return {String}
-         */
-        config.rewrite = function(name, config, pipe){
-            return name;
-        };
+    function Config(){
+        this.pathMap = {};
+        this.shimMap = {};
     }
 
+    ConfigProto.debug    = false;
+    ConfigProto.override = false;
+    ConfigProto.timeout  = 7;
+    ConfigProto.urlBase  = '';
+    ConfigProto.urlArgs  = '';
+    ConfigProto.urlExt   = '.js';
+    ConfigProto.pathNow  = '';
+    ConfigProto.pathMap  = undef;
+    ConfigProto.shimMap  = undef;
+
     /**
-     * clones current config
+     * rewrites module name.
+     *
+     * @param {string} name - module name
+     * @param {string} parent - emitter name
+     * @param {Config} config - context config
+     * @return {string}
+     */
+    ConfigProto.rewrite = function(name, parent, config){
+        return name;
+    };
+
+    /**
+     * logs a error.
+     *
+     * @param {Error} error - error object
+     * @param {Object} [memo] - memo data
+     */
+    ConfigProto.log = function(error, memo){
+        if (console) {
+            Function.prototype.call.call(
+                console.error || console.log,
+                console,
+                memo || error.stack || error.stacktrace || error
+            );
+        }
+    };
+
+    /**
+     * clones this config.
      *
      * @return {Config}
      */
-    (EmptyConfig.prototype = Config.prototype).clone = function(){
-        var config = new EmptyConfig();
-        mixObject(config, this);
+    ConfigProto.clone = function(){
+        var config = new Config();
+
+        iterate(config, function(key, value){
+            if (hasOwn.call(this, key)) {
+                if ('pathMap' === key || 'shimMap' === key) {
+                    iterate(this[key], function(key, value){
+                        this[key] = value;
+                    }, config[key]);
+                } else {
+                    config[key] = this[key];
+                }
+            }
+        }, this);
+
         return config;
+    };
+
+    /**
+     * merges a config.
+     *
+     * @param {*} config
+     * @return {Config}
+     */
+    ConfigProto.merge = function(config){
+        if (!config) { return this; }
+
+        var urlBase = config.urlBase;
+
+        // ensures the debug is a boolean
+        if ('debug' in config) {
+            this.debug    = true === config.debug;
+        }
+
+        // ensures the override is a boolean
+        if ('override' in config) {
+            this.override = true === config.override;
+        }
+
+        // ensures the timeout is a positive number
+        if (isFinite(config.timeout) && 0 < config.timeout) {
+            this.timeout  = config.timeout;
+        }
+
+        // ensures the urlBase ends in a slash
+        if (isString(urlBase)) {
+            if (urlBase && !rEndSlash.test(urlBase)) {
+                urlBase += '/';
+            }
+            this.urlBase = urlBase;
+        }
+
+        // ensures the parameters is a string
+        if (isString(config.urlArgs)) {
+            this.urlArgs  = config.urlArgs;
+        }
+
+        // ensures the extension is a string
+        if (isString(config.urlExt)) {
+            this.urlExt   = config.urlExt;
+        }
+
+        // ensures the rewrite is a function
+        if (isFunction(config.rewrite)) {
+            this.rewrite = config.rewrite;
+        }
+
+        // ensures the path is not end in a slash, also cleans it
+        iterate(config.pathMap, function(key, value){
+            if (isString(value)) {
+                this.pathMap[key] = nameClean(value.replace(rEndSlash, ''));
+            }
+        }, this);
+
+        // ensures the shim definitions
+        iterate(config.shimMap, function(key, value){
+            var factory = isFunction(value) ? value : isString(value) ? function(){
+                return global[value];
+            } : undef;
+            if (factory) {
+                this.shimMap[nameNormalize(key, this)] = factory;
+            }
+        }, this);
+
+        return this;
     };
 
     /**
@@ -480,11 +667,10 @@
      *
      * @param {Config} config
      * @constructor
-     * @private
      */
     function Context(config){
-        var context  = this,
-            deferred = new Deferred();
+        var context  = this;
+        var deferred = new Deferred();
 
         // functions
         context.resolve  = deferred.resolve;
@@ -501,12 +687,12 @@
     }
 
     /**
-     * gets module instance from current context
+     * gets module instance from current context.
      *
-     * @param {String} name - module name
+     * @param {string} name - module name
      * @return {Module}
      */
-    Context.prototype.getModule = function(name, emitter){
+    Context.prototype.getModule = function(name){
         return amdModules[name] || (amdModules[name] = new Module(
             name, this.config
         ));
@@ -515,45 +701,60 @@
     /**
      * module class
      *
-     * @param {String} name - module name
+     * @param {string} name - module name
      * @param {Config} config - context config
      * @constructor
-     * @private
      */
     function Module(name, config){
-        var module   = this,
-            deferred = new Deferred();
+        var module = this;
+        var define = new Deferred();
+        var settle = new Deferred();
 
-        config = config.clone();
-        config.pathNow = name.replace(rResource, '$1');
+        var _config = config.clone();
+        _config.pathNow = name.replace(rResource, '$1');
 
         // functions
-        module.resolve = deferred.resolve;
-        module.reject  = deferred.reject;
+        module.define = define.resolve;
+        module.settle = settle.resolve;
+        module.reject = function(reason){
+            var rejected = undef;
+            if (sPending === define.state()) {
+                rejected = define.reject(reason);
+            }
+            if (sPending === settle.state()) {
+                rejected = settle.reject(reason);
+            }
+            if (undef === rejected) {
+                throw makePromiseError('reject', reason);
+            }
+            return rejected;
+        };
 
         // properties
-        module.emitters = {};
-        module.promise = deferred.promise;
-        module.context = new Context(config);
-        module.settled = false;
-        module.defined = false;
+        module.parents = {};
+        module.request = define.promise;
+        module.promise = settle.promise;
+        module.context = new Context(_config);
         module.pending = true;
-        module.dependencies = undef;
+        module.defined = false;
+        module.settled = false;
+        module.imports = undef; // direct dependencies
+        module.insides = undef; // inline dependencies
         module.factory = undef;
         module.exports = undef;
         module.name    = name;
     }
 
     /**
-     * adds module emitter name
+     * adds parent module name.
      *
-     * @param {String} name - module name
-     * @return {Module}
+     * @param {string} name - module name
      */
-    Module.prototype.addEmitter = function(name){
-        if (null != name && sRequire !== name && amdModules.hasOwnProperty(name)) {
-            this.emitters[name] = amdModules[name].emitters;
+    Module.prototype.addParent = function(name){
+        if (sRequire !== name && hasOwn.call(amdModules, name)) {
+            this.parents[name] = amdModules[name].parents;
         }
+        return this;
     };
 
     /**
@@ -567,87 +768,97 @@
     }
 
     /**
-     * registers a callback, always be fired when promise is settled
-     *
-     * @param {Function} alwaysBack
-     * @return {Promise}
-     */
-    Promise.prototype.always = function(alwaysBack){
-        return this.then(alwaysBack, alwaysBack);
-    };
-
-    /**
-     * deferred promise class
+     * deferred promise class (native)
      *
      * @constructor
-     * @private
      */
-    function Deferred(){
-        var deferred = this,
-            promise  = new Promise(),
+    function DeferredNative(){
+        var deferred = this;
+        var state = sPending;
+        var resolve, reject;
+        var promise = new NPromise(function(_resolve, _reject){
+            resolve = _resolve;
+            reject = _reject;
+        });
+        deferred.promise = promise;
+        deferred.resolve = function(value){
+            resolve(value); return promise;
+        };
+        deferred.reject = function(reason){
+            reject(reason); return promise;
+        };
+        deferred.state = function(){
+            return state;
+        };
+        deferred.then = function(){
+            return promise.then.apply(promise, arguments);
+        };
+        promise.then(function(){
+            state = sResolved;
+        }, function(){
+            state = sRejected;
+        });
+    }
 
-            // listeners
-            listeners = [],
+    /**
+     * deferred promise class (polyfill)
+     *
+     * @constructor
+     */
+    function DeferredPolyfill(){
+        var deferred = this;
+        var listeners = [];
+        var promise  = new Promise(undef);
+        var state = sPending;
 
-            // progress handlers
-            progbacks = [],
+        /**
+         * pre-resolution then() that adds the supplied callback
+         * and fallback functions to the registered listeners.
+         *
+         * @param {Function} [callback] - resolved handler
+         * @param {Function} [fallback] - rejected handler
+         */
+        var then = function(callback, fallback) {
+            var _deferred = deferred;
 
-            // deferred state
-            state = 'pending',
+            if (callback || fallback) {
+                _deferred = new Deferred();
 
-            /**
-             * pre-resolution then() that adds the supplied callback, fallback
-             * and progback functions to the registered listeners.
-             *
-             * @param {Function} [callback] - resolution handler
-             * @param {Function} [fallback] - rejection handler
-             * @param {Function} [progback] - progress handler
-             */
-            _then = function(callback, fallback, progback) {
-                var deferred_ = deferred;
+                listeners.push(function(promise){
+                    promise
+                    .then(callback, fallback)
+                    .then(_deferred.resolve, _deferred.reject);
+                });
+            }
 
-                if (callback || fallback) {
-                    deferred_ = new Deferred();
+            return _deferred.promise;
+        };
 
-                    listeners.push(function(promise){
-                        promise
-                        .then(callback, fallback)
-                        .then(deferred_.resolve, deferred_.reject);
-                    });
-                }
+        /**
+         * Transition from pending state to settled state,
+         * notifying all listeners of the resolution or rejection.
+         *
+         * @param {*|Promise} completed the completed value of this deferred
+         * @return {Promise}
+         */
+        var settle = function(completed){
+            var i, l;
 
-                if (isFunction(progback)) {
-                    progbacks.push(progback);
-                }
+            completed = promiseResolve(completed);
 
-                return deferred_.promise;
-            },
+            // Replaces _then with one that directly notifies with the result.
+            then = completed.then;
 
-            /**
-             * Transition from pending state to settled state,
-             * notifying all listeners of the resolution or rejection.
-             *
-             * @param {*|Promise} completed the completed value of this deferred
-             * @return {Promise}
-             */
-            _settle = function(completed){
-                var i, l;
+            // Notify listeners
+            for (i = 0, l = listeners.length; i < l; i++) {
+                listeners[i](completed);
+            }
 
-                completed = promiseResolve(completed);
+            // GC
+            settle = listeners = undef;
 
-                // Replaces _then with one that directly notifies with the result.
-                _then = completed.then;
-
-                // Notify listeners
-                for (i = 0, l = listeners.length; i < l; i++) {
-                    listeners[i](completed);
-                }
-
-                // GC
-                _settle = listeners = undef;
-
-                return completed;
-            };
+            return completed;
+        };
 
         deferred.promise = promise;
 
@@ -656,12 +867,12 @@
          * even though all arguments are optional, each argument that *is*
          * supplied must be null, undefined, or a function.
          *
-         * @param {Function} [callback] - resolution handler
-         * @param {Function} [fallback] - rejection handler
+         * @param {Function} [callback] - resolved handler
+         * @param {Function} [fallback] - rejected handler
          * @return {Promise}
          */
-        deferred.then = promise.then = function(callback, fallback, progback){
-            return _then(callback, fallback, progback);
+        deferred.then = promise.then = function(callback, fallback){
+            return then(callback, fallback);
         };
 
         /**
@@ -676,11 +887,11 @@
          * @return {Promise} - a promise for the resolution value
          */
         deferred.resolve = function(value){
-            if (_settle) {
-                state = 'resolved';
-                return _settle(value);
+            if (settle) {
+                state = sResolved;
+                return settle(value);
             }
-            throw makePromiseError();
+            throw makePromiseError('resolve', value);
         };
 
         /**
@@ -690,32 +901,17 @@
          * @return {Promise}
          */
         deferred.reject = function(reason){
-            if (_settle) {
-                state = 'rejected';
-                return _settle(promiseRejected(reason));
+            if (settle) {
+                state = sRejected;
+                return settle(promiseRejected(reason));
             }
-            throw makePromiseError();
-        };
-
-        /**
-         * emits a progress update to all progress observers registered with
-         * this deferred's promise.
-         *
-         * @param {*} [update] - anything
-         */
-        deferred.notify = function(update){
-            if (!_settle) {
-                throw makePromiseError();
-            }
-            for (var i = 0, l = progbacks.length; i < l; i++) {
-                progbacks[i](update);
-            }
+            throw makePromiseError('reject', reason);
         };
 
         /**
          * gets the state of this deferred.
          *
-         * @return {String} - state string of this Deferred
+         * @return {string} - state string of this Deferred
          */
         deferred.state = function(){
             return state;
@@ -734,7 +930,6 @@
      *
      * @param promiseOrValue {*|Promise}
      * @return {Promise}
-     * @private
      */
     function promiseResolve(promiseOrValue){
         if (isFunction(promiseOrValue && promiseOrValue.then)) {
@@ -749,14 +944,13 @@
      *
      * @param {*} [value] - anything
      * @return {Promise}
-     * @private
      */
     function promiseResolved(value){
         return new Promise(function(callback){
             try {
                 return promiseResolve(callback ? callback(value) : value);
-            } catch (e) {
-                return promiseRejected(e);
+            } catch (error) {
+                return promiseRejected(error);
             }
         });
     }
@@ -766,14 +960,13 @@
      *
      * @param {*} [reason] - rejection reason
      * @return {Promise}
-     * @private
      */
     function promiseRejected(reason) {
         return new Promise(function(callback, fallback){
             try {
                 return fallback ? promiseResolve(fallback(reason)) : promiseRejected(reason);
-            } catch (e) {
-                return promiseRejected(e);
+            } catch (error) {
+                return promiseRejected(error);
             }
         });
     }
@@ -781,14 +974,12 @@
     /**
      *
      * @param {*|Promise} promiseOrValue
-     * @param {Function} [callback] - resolution handler
-     * @param {Function} [fallback] - rejection handler
-     * @param {Function} [progback] - progress handler
+     * @param {Function} [callback] - resolved handler
+     * @param {Function} [fallback] - rejected handler
      * @return {Promise}
-     * @private
      */
-    function promiseWhen(promiseOrValue, callback, fallback, progback) {
-        return promiseResolve(promiseOrValue).then(callback, fallback, progback);
+    function promiseWhen(promiseOrValue, callback, fallback) {
+        return promiseResolve(promiseOrValue).then(callback, fallback);
     }
 
 
@@ -799,55 +990,66 @@
      * converts a name to a url
      * with given config or current config
      *
-     * @param {String} name - name to convert
-     * @param {Config} config - config {@link Config}
-     * @return {String}
+     * @param {string} name - name to convert
+     * @param {Object} [config] - config object
+     * @param {string} [config.urlBase]
+     * @param {string} [config.urlExt]
+     * @param {string} [config.urlArgs]
+     * @param {string} [config.pathNow]
+     * @param {Object} [config.pathMap]
+     * @return {string}
      */
     function toUrl(name, config){
-        var index = name.lastIndexOf('.'),
-            ext   = '';
+        var _name = nameNormalize(name, config);
+        if (rQizHash.test(_name)) {
+            return nameToUrl(name, config);
+        }
+
+        var _path = _name.split(rQizHash).shift();
+        var _file = _path.split(sSlash).pop();
+        var index = _file.lastIndexOf('.'), ext;
 
         if (-1 !== index) {
-            ext = name.substring(index, name.length);
-            name = name.substring(0, index);
+            ext = _file.slice(index);
         }
 
-        name = nameNormalize(name, config);
 
-        return nameToUrl(name, config, ext);
+        return nameToUrl(_name, config, ext);
     }
 
     /**
      * converts name to url with config
      *
-     * @param {String} name - normalized module name
+     * @param {string} name - normalized module name
      * @param {Config} config - config instance
-     * @param {String} [ext] - resource extension
-     * @return {String}
-     * @private
+     * @param {string} [ext] - resource extension
+     * @return {string}
      */
     function nameToUrl(name, config, ext){
-        var url = name;
+        var _url = name;
+        var _ext = null == ext ? config.urlExt : ext;
 
-        if (!rExtUrl.test(url)) {
-            url += (ext || config.urlExt);
+        if (!(rQizHash.test(_url) || 0 < _url.split(sSlash).pop().indexOf(_ext))) {
+            _url += _ext;
         }
         if (config.urlBase && !rAbsUrl.test(name)) {
-            url = config.urlBase + url;
-        }
-        if (config.urlArgs) {
-            url += (rQizMark.test(url) ? '&' : '?') + config.urlArgs;
+            _url = config.urlBase + _url;
         }
 
-        return url;
+        var path = _url.split('#').shift();
+        var hash = _url.slice(path.length);
+        if (config.urlArgs) {
+            path += (rQizMark.test(path) ? '&' : '?') + config.urlArgs;
+        }
+
+        return path + hash;
     }
 
     /**
      * converts name to url with config
      *
-     * @param {String} name - normalized module name
-     * @return {String}
-     * @private
+     * @param {string} name - normalized module name
+     * @return {string}
      */
     function nameClean(name){
         // cleans '/./'
@@ -871,74 +1073,54 @@
     /**
      * normalizes module name
      *
-     * @param {String} name - module name
+     * @param {string} name - module name
      * @param {Config} config - config instance
-     * @return {String}
-     * @private
+     * @return {string}
      */
     function nameNormalize(name, config){
         if (!name) {
             return name;
         }
 
-        if (!rAbsUrl.test(name)) {
-            if (!rRelUrl.test(name)) {
-                var maps = config.pathMap,
-                    syms, path, i;
+        var path = name.split(rQizHash).shift();
+        var data = name.slice(path.length);
+        var maps, syms, temp, i;
 
-                if (maps) {
+        if (!path) {
+            return name;
+        }
+
+        if (!rAbsUrl.test(path)) {
+            if (!rRelUrl.test(path)) {
+                if ((maps = config.pathMap)) {
                     // joins path maps
-                    syms = name.split(sSlash);
+                    syms = path.split(sSlash);
                     for (i = syms.length; i > 0; i--) {
-                        path = syms.slice(0, i).join(sSlash);
-                        if (hasOwn.call(maps, path)) {
+                        temp = syms.slice(0, i).join(sSlash);
+                        if (hasOwn.call(maps, temp)) {
                             /*jshint boss:true*/
-                            if (path = maps[path]) {
-                                syms.splice(0, i, path); // replace
+                            if (temp = maps[temp]) {
+                                syms.splice(0, i, temp); // replace
                             } else {
                                 syms.splice(0, i); // delete
                             }
                             break;
                         }
                     }
-                    name = syms.join(sSlash);
+                    path = syms.join(sSlash);
                 }
             } else if (config.pathNow) {
                 // joins current path
-                name = config.pathNow + name;
+                path = config.pathNow + path;
             }
 
             // pull off the leading dot.
-            if (0 === name.indexOf('./')) {
-                name = name.substring(2);
+            if (0 === path.indexOf('./')) {
+                path = path.substring(2);
             }
         }
 
-        return nameClean(name);
-    }
-
-    /**
-     * parses name to an object like { prefix, name }
-     * the value of 'prefix' or 'name' will be normalized.
-     *
-     * @param {String} name - module name
-     * @param {Config} config - config instance
-     * @return {Object}
-     * @private
-     */
-    function nameParse(name, config){
-        var index = name ? name.indexOf('!') : -1,
-            pipe;
-
-        if (-1 !== index) {
-            pipe = name.substring(index + 1, name.length);
-            name = name.substring(0, index);
-        }
-
-        return {
-            name: nameNormalize(name, config),
-            pipe: pipe
-        };
+        return nameClean(path) + data;
     }
 
 
@@ -949,7 +1131,6 @@
      * finds module by interactive script element
      *
      * @return {Module}
-     * @private
      */
     function getCurrentModule(){
         for (var id in actScripts) {
@@ -965,7 +1146,6 @@
      *
      * @param {Array} dependencies
      * @param {Function} factory
-     * @private
      */
     function extractFactoryRequires(dependencies, factory){
         var requires = [], offset = 0, source, params;
@@ -991,125 +1171,76 @@
     }
 
     /**
+     * loads modules
+     *
+     * @param {Context} context - loading context
+     * @param {Array.<string>} imports - direct dependencies
+     * @param {?Array.<string>} insides - inline dependencies
+     * @param {string} parent - emitter name
+     * @param {boolean} frozen - disallow name rewriting
+     * @return {Promise} - context promise
+     */
+    function loadModules(context, imports, insides, parent, frozen){
+        var exports = [];
+        var next    = true;
+        var offset  = imports.length;
+        var index, length, count, name;
+
+        if (insides && insides.length) {
+            imports = imports.concat(insides);
+        }
+
+        if (( count = (length = imports.length) )) {
+            exports.length = offset;
+            for (index = 0; next && index < length; index++) {
+                if ((name = imports[index])) {
+                    loadModule(context, index < offset ? index : name, name, parent, frozen)
+                        .then(callback, fallback);
+                }
+            }
+        } else {
+            context.resolve(exports);
+        }
+
+        return context.promise;
+
+        // resolves context
+        function callback(module){
+            // saves exports to array or require hash
+            (isString(module.index) ? context.requires : exports)[module.index] = module.exports;
+
+            // context resolved
+            if (0 === --count) {
+                context.resolve(exports);
+            }
+        }
+
+        // rejects context
+        function fallback(reason){
+            // stops load rest modules
+            next = false;
+
+            // context rejected: module rejected
+            context.reject(reason);
+        }
+    }
+
+    /**
      * loads single module
      *
      * @param {Context} context - module context
-     * @param {String} name - module name
-     * @param {Number|String} index - number as index in the context, string as inner required module name
-     * @param {|Module} loader - module loader
-     * @param {String} emitter - emitter name
-     * @param {Boolean} frozen - frozen module names
+     * @param {number|string} index - number of import, name of inline
+     * @param {string} name - module name
+     * @param {string} parent - emitter name
+     * @param {boolean} frozen - disallow name rewriting
      * @return {Promise} - module promise
-     * @private
      */
-    function loadModule(context, name, index, loader, emitter, frozen){
-        if (name in locModules) {
-            return promiseResolved(locModules[name](context, emitter)).then(callback);
-        }
-
-        var destName = loader || frozen ? name : globalConfig.rewrite(name, context.config, !!loader),
-            resource = nameParse(destName, context.config, loader),
-            currName = resource.name,
-            pipeName = resource.pipe,
-            asLoader = undef !== pipeName, // allows empty string
-            module, promise, deferred;
-
-        if (!currName) {
-            return promiseRejected(makeError({
-                message: 'module name empty.',
-                parent:  emitter,
-                source:  destName
-            })).then(null, fallback);
-        }
-
-        // gets module/loader instance
-        module = context.getModule(
-            loader && undef === pipeName ? loader.name + '!' + currName : currName
-        );
-        module.addEmitter(emitter);
-
-        // module's promise will be returned
-        promise = module.promise;
-
-        // loads module when the loader defined
-        if (asLoader) {
-            // a new deferred instance
-            deferred = new Deferred();
-
-            // loads module when loader is resolved
-            promise.then(function(exports){
-                if (exports && isFunction(exports.load)) {
-                    // normalizes resource name
-                    if (isFunction(exports.normalize)) {
-                        pipeName = exports.normalize(pipeName, function(name){
-                            return nameNormalize(name, context.config);
-                        });
-                    } else {
-                        pipeName = nameNormalize(pipeName, context.config);
-                    }
-
-                    // loads pipe module
-                    loadModule(context, pipeName, index, module, sRequire === emitter ? name : emitter, frozen)
-                        .then(deferred.resolve, deferred.reject);
-                } else {
-                    deferred.reject(makeError({
-                        message: '"load()" undefined.',
-                        parent:  emitter,
-                        source:  destName
-                    }));
-                }
-            }, deferred.reject);
-
-            // deferred's promise will be returned
-            promise = deferred.promise;
-        }
-
-        // loads module by the module<loader>
-        if (loader && !asLoader) {
-            if (module.pending) {
-                // sets module as executing
-                module.pending = false;
-                loader.exports.load(currName, {
-                    emitters: module.emitters,
-                    resolve:  module.resolve,
-                    reject:   module.reject,
-                    name:     module.name,
-                    config: function(){
-                        return module.context.config;
-                    },
-                    load: function(url){
-                        scriptLoad(module, emitter, url);
-                        return module.promise;
-                    },
-                    toUrl: function(name, config){
-                        return toUrl(name, config || this.config());
-                    }
-                }, emitter);
-                // sets module as defined
-                module.promise.then(function(exports){
-                    module.exports = exports;
-                    module.defined = true;
-                    module.settled = true;
-                });
-            }
-
-            // returns the pipe module promise
-            return promise;
-
-        // loads module in the default way
-        } else {
-            if (module.pending) {
-                scriptLoad(module, emitter);
-            }
-
-            // returns the middle promise (case: b!c i n a!b!c)
-            if (loader && asLoader) {
-                return promise;
-            }
-
-            // returns the final promise
-            return promise.then(callback, fallback);
-        }
+    function loadModule(context, index, name, parent, frozen){
+        var promise = moduleLoad(context, name, parent, frozen);
+        promise = promise.then(function(module){
+            return hasOwn.call(locModules, name) ? module : moduleSettle(module, parent, frozen);
+        });
+        return promise.then(callback, fallback);
 
         // module resolved
         function callback(exports){
@@ -1131,113 +1262,195 @@
         }
     }
 
-    /**
-     * loads modules
-     *
-     * @param {Context} context - loading context
-     * @param {Array} modules - required module names
-     * @param {Array} [requires] - inner required module names
-     * @param {String} emitter - emitter name
-     * @param {Boolean} frozen - frozen module names
-     * @return {Promise} - context promise
-     * @private
-     */
-    function loadModules(context, modules, requires, emitter, frozen){
-        var exports = [],
-            next    = true,
-            offset  = modules.length,
-            timeout = false,
-            index, length, count, name;
-
-        if (requires && requires.length) {
-            modules = modules.concat(requires);
-        }
-
-        if (( count = (length = modules.length) )) {
-            exports.length = offset;
-            for (index = 0; next && index < length; index++) {
-                if ((name = modules[index])) {
-                    loadModule(context, name, index < offset ? index : name, undef, emitter, frozen)
-                        .then(callback, fallback);
-                }
-            }
-
-            setTimeout(timer, 1000 * context.config.timeout);
-        } else {
-            context.resolve(exports);
-        }
-
-        return context.promise;
-
-        // resolves context
-        function callback(module){
-            // saves exports to array or require hash
-            (isString(module.index) ? context.requires : exports)[module.index] = module.exports;
-
-            if (0 === --count && !timeout) {
-                // clears timeout
-                timeout = true;
-
-                // context resolved
-                context.resolve(exports);
-            }
-        }
-
-        // rejects context
-        function fallback(reason){
-            // stops load rest modules
-            next = false;
-
-            if (!timeout) {
-                // clears timeout
-                timeout = true;
-
-                // context rejected: module rejected
-                context.reject(reason);
-            }
-        }
-
-        function timer(){
-            if (!timeout) {
-                // clears timeout
-                timeout = true;
-
-                // context rejected: timeout
-                context.reject(makeError({
-                    message: 'execute timeout.',
-                    parent:  emitter,
-                    source:  'context'
-                }));
-            }
-        }
-    }
-
 
     // core functions
     // =========================================================================
 
     /**
-     * module defining
+     * module loading
      *
-     * @param {String} name
-     * @param {Array} dependencies
-     * @param {Array} requires
-     * @param {Function} factory
-     * @param {Module} module
-     * @private
+     * @param {Context} context - module context
+     * @param {string} name - module name
+     * @param {string} parent - emitter name
+     * @param {boolean} frozen - disallow name rewriting
+     * @return {Promise} - module promise
      */
-    function moduleDefine(name, dependencies, requires, factory, module){
-        var context = module.context;
-
-        // if name is given and not matched with current one,
-        // gets the correct module & context instance.
-        name = nameNormalize(name, context.config);
-        if (name && name !== module.name) {
-            module  = context.getModule(name);
-            context = module.context;
+    function moduleLoad(context, name, parent, frozen){
+        if (hasOwn.call(locModules, name)) {
+            return promiseResolved(locModules[name](context, parent, frozen));
         }
 
-        if (module.defined && !globalConfig.override) {
+        var fullName = name.split('!').shift();
+        var pipeName = name.slice(fullName.length + 1);
+        var currName = fullName.split('#').shift();
+        var currHash = fullName.slice(currName.length);
+        var destName, promise, module;
+
+        if (!currName) {
+            return promiseRejected(makeError({
+                message: ('' === pipeName ? 'module' : 'plugin') + ' name empty.',
+                parent:  parent,
+                source:  name
+            }));
+        }
+
+        // internal loading
+        if ('' === pipeName) {
+            // rewrites resource name
+            if (!frozen && isFunction(configGlobal.rewrite)) {
+                destName = configGlobal.rewrite(currName, parent);
+            } else {
+                destName = currName;
+            }
+
+            // normalizes resource name
+            destName = nameNormalize(destName, context.config);
+
+            // gets module instance
+            module = context.getModule(destName).addParent(parent);
+
+            // loads module file
+            if (module.pending) {
+                scriptLoad(module, parent);
+            }
+
+            // get module instance promise
+            promise = promiseResolved(module);
+
+        // external loading
+        } else {
+            if (hasOwn.call(locModules, currName) || hasOwn.call(locModules, pipeName)) {
+                return promiseRejected(makeError({
+                    message: 'pipe internal module.',
+                    parent:  parent,
+                    source:  name
+                }));
+            }
+
+            // get plugin instance promise
+            promise = moduleLoad(context, currName, sRequire, true);
+
+            // get plugin settling promise
+            promise = promise.then(function(module){
+                return hasOwn.call(locModules, name) ? module : moduleSettle(module, sRequire, true);
+            });
+
+            // get module defining promise
+            promise = promise.then(function(exports){
+                if (!exports || !isFunction(exports.load)) {
+                    return promiseRejected(makeError({
+                        message: '"load()" undefined.',
+                        parent:  name,
+                        source:  currName
+                    }));
+                }
+
+                // normalizes resource name
+                if (isFunction(exports.normalize)) {
+                    destName = exports.normalize(pipeName, function(name){
+                        return nameNormalize(name, context.config);
+                    });
+                } else {
+                    destName = nameNormalize(pipeName, context.config);
+                }
+
+                // gets module instance
+                module = context.getModule(fullName + '!' + destName).addParent(parent);
+                if (!module.pending) {
+                    return module;
+                }
+
+                // sets module as executing
+                module.pending = true;
+
+                try {
+                    var local = false, result = exports.load(/* request */{
+                        /** @type {string} */
+                        params: currHash,
+
+                        /** @type {Config} */
+                        config: context.config,
+
+                        /**
+                         * loads a sub-module.
+                         *
+                         * @param {string} [name] - module name
+                         * @return {*} promise or value
+                         */
+                        load: function(name){
+                            local = true;
+                            return moduleLoad(context, name || destName, parent, frozen).then(function(module){
+                                return module.request;
+                            });
+                        },
+
+                        /**
+                         * parses a name to a url.
+                         *
+                         * @param {string} name - module name
+                         * @param {Object} [config] - config object
+                         * @param {string} [config.urlBase]
+                         * @param {string} [config.urlExt]
+                         * @param {string} [config.urlArgs]
+                         * @param {string} [config.pathNow]
+                         * @param {Object} [config.pathMap]
+                         * @return {string}
+                         */
+                        toUrl: function(name, config){
+                            return toUrl(name, config || context.config);
+                        }
+                    }, destName, parent, module.parents);
+                    promiseWhen(result, function(result){
+                        if (local) {
+                            var imports = result.imports;
+                            var insides = result.insides;
+
+                            // rewrites pipe resource name
+                            if (!frozen && isFunction(exports.rewrite)) {
+                                imports = imports && map.call(imports, function(name){
+                                    return exports.rewrite(name, module.name);
+                                });
+                                insides && insides && map.call(insides, function(name){
+                                    return exports.rewrite(name, module.name);
+                                });
+                            }
+
+                            moduleDefine('', imports, insides, result.factory, module);
+                        } else {
+                            moduleDefine('', [], undef, function(){ return result; }, module);
+                        }
+                    }, module.reject);
+                } catch (error) {
+                    module.reject(logError(error));
+                }
+
+                return module;
+            });
+        }
+
+        return promise;
+    }
+
+    /**
+     * module defining
+     *
+     * @param {string} name - module name
+     * @param {Array.<string>} imports - direct dependencies
+     * @param {?Array.<string>} insides - inline dependencies
+     * @param {Function} factory - module exports factory
+     * @param {Module} module - module instance
+     */
+    function moduleDefine(name, imports, insides, factory, module){
+        // if name is given and not matched with current one,
+        // gets the correct module & context instance.
+        if (name && name !== module.name) {
+            var _name = nameNormalize(name, module.context.config);
+            if (_name && _name !== module.name) {
+                module  = module.context.getModule(_name);
+            }
+        }
+
+        if (module.defined && !configGlobal.override) {
             // do not do more define if already done. can happen if there
             // are multiple define calls for the same module. that is not
             // a normal, common case, but it is also not unexpected.
@@ -1249,40 +1462,78 @@
             return;
         }
 
-        // sets module as defined
-        module.defined = true;
-
         // sets module as executing
         module.pending = false;
 
+        // sets module as defined
+        module.defined = true;
+
         // saves module dependencies
-        module.dependencies = dependencies;
+        module.imports = imports;
+        module.insides = insides;
 
         // saves module factory
-        module.factory = factory;
+        if (isFunction(factory)) {
+            module.factory = factory;
+        } else {
+            module.factory = function(){
+                return factory;
+            };
+        }
 
-        loadModules(context, dependencies, requires, globalConfig.rewrite(module.name, context.config, false), false).then(callback, fallback);
+        // module defined
+        module.define({
+            imports: module.imports,
+            insides: module.insides,
+            factory: module.factory
+        });
+    }
+
+    /**
+     * module defining
+     *
+     * @param {Module} module - module instance
+     * @param {string} parent - emitter name
+     * @param {boolean} frozen - disallow name rewriting
+     * @param {boolean} [settle] - internal only
+     */
+    function moduleSettle(module, parent, frozen, settle){
+        if (module.settled) {
+            return module.promise;
+        }
+
+        if (undef === settle) {
+            return module.request.then(function(){
+                return moduleSettle(module, parent, frozen, true);
+            });
+        }
+
+        // sets module as settled
+        module.settled = true;
+
+        // load dependencies
+        loadModules(module.context, module.imports, module.insides, module.name, frozen).then(callback, fallback);
+
+        return module.promise;
 
         // resolves module
-        function callback(modules){
-            var cjsModule  = context.module,
-                cjsExports = context.exports,
-                cjsReturns, returns;
+        function callback(dependencies){
+            var context    = module.context;
+            var cjsModule  = context.module;
+            var cjsExports = context.exports;
+            var cjsReturns, returns;
 
             // saves module factory
             if (undef !== cjsModule) {
-                cjsModule.factory = factory;
+                cjsModule.factory = module.factory;
             }
 
             try {
                 // executes module factory
-                returns = factory.apply(global, modules);
+                returns = module.factory.apply(global, dependencies);
             } catch (reason) {
-                // log error
-                logError(reason);
-
                 // module rejected: module factory exception
-                module.reject(reason);
+                module.reject(logError(reason));
             }
 
             // priority CommonJS 'module.exports' / 'exports',
@@ -1303,11 +1554,8 @@
                 context.exports = returns;
             }
 
-            // sets module as settled
-            module.settled = true;
-
             // module resolved
-            module.resolve(returns);
+            module.settle(returns);
         }
 
         // rejects module
@@ -1320,50 +1568,49 @@
     /**
      * defines a module
      *
-     * @param {String} [name] - module name
-     * @param {Array} [dependencies] - module dependencies
-     * @param {Object|Function} factory - an object or a function with returns
-     * @private
+     * @param {string} [name] - module name
+     * @param {Array.<string>} [dependencies] - module dependencies
+     * @param {Function|Object} factory - a function with returns or an object
      */
     function define(name, dependencies, factory){
-        var arity = arguments.length,
-            module = scriptState && getCurrentModule(),
-            _dependencies = cjsModules,
-            _name, _factory, requires;
+        var arity = arguments.length;
+        var module = scriptState && getCurrentModule();
+        var _imports = cjsModules;
+        var _insides, _factory, _name, name_;
 
         // fixes arguments
         if (2 === arity) {
             if (isString(name)) {
                 _name = name;
             } else {
-                _dependencies = name;
+                _imports = name;
             }
             factory = dependencies;
         } else if (1 === arity) {
             factory = name;
         } else if (3 === arity) {
             _name = name;
-            _dependencies = dependencies;
+            _imports = dependencies;
         }
 
         if (isFunction(factory)) {
             // fixes dependencies
-            if (cjsModules === _dependencies && !factory.length) {
-                _dependencies = '';
+            if (cjsModules === _imports && !factory.length) {
+                _imports = '';
             }
-            _dependencies = _dependencies && ('' + _dependencies).replace(rTrim, '');
-            _dependencies = _dependencies ? _dependencies.split(rComma) : [];
+            _imports = _imports && ('' + _imports).replace(rTrim, '');
+            _imports = _imports ? _imports.split(rComma) : [];
 
             // fixes factory
             _factory = factory;
             if (_factory.length) {
                 // extracts requires in the factory
-                requires = extractFactoryRequires(_dependencies, _factory);
+                _insides = extractFactoryRequires(_imports, _factory);
             }
         } else {
             // fixes dependencies
-            if (cjsModules === _dependencies) {
-                _dependencies = [];
+            if (cjsModules === _imports) {
+                _imports = [];
             }
 
             // fixes factory
@@ -1372,30 +1619,32 @@
             };
         }
 
-        _name = _name && nameNormalize(_name, globalConfig);
+        name_ = _name && nameNormalize(_name, configGlobal);
 
-        if (module) {
-            // amd module in ie browser
-            amdScriptQ[module.name].push([_name, _dependencies, requires, _factory]);
-        } else if (!scriptState && (0 < runScripts) && (!_name || _name in actScripts)) {
-            // amd module in other browsers
-            amdScriptQ.push([_name, _dependencies, requires, _factory]);
-        } else {
-            // global define / worker import module
-            if (!_name && 0 !== _name) {
-                if (isWebWorker && 0 < amdImportQ.length) {
-                    _name = amdImportQ[amdImportQ.length - 1].name;
-                } else {
-                    _name = 'unknown/' + (++unknowns);
-                    makeError({
-                        message: 'undetectable module name.',
-                        parent:  global,
-                        source:  factory || _name
-                    });
-                }
-            }
-            moduleDefine(_name, _dependencies, requires, _factory, new Context(globalConfig).getModule(_name));
+        // amd module in ie browser
+        if (scriptState && module) {
+            return void(amdScriptQ[module.name].push([name_, _imports, _insides, _factory]));
         }
+
+        // amd module in other browsers
+        if (!scriptState && (0 < runScripts) && (!name_ || name_ in actScripts)) {
+            return void(amdScriptQ.push([name_, _imports, _insides, _factory]));
+        }
+
+        // global define / worker import module
+        if (!name_ && 0 !== name_) {
+            if (isWebWorker && 0 < amdImportQ.length) {
+                name_ = amdImportQ[amdImportQ.length - 1].name;
+            } else {
+                name_ = 'unknown/' + (++unknowns);
+                makeError({
+                    message: 'undetectable module name.',
+                    parent:  'global',
+                    source:  factory || name_
+                });
+            }
+        }
+        moduleDefine(name_, _imports, _insides, _factory, new Context(configGlobal).getModule(name_));
     }
 
     /**
@@ -1403,7 +1652,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.2.1',
+        version: '1.3.0',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1411,19 +1660,18 @@
     /**
      * requires module(s)
      *
-     * @param {String|Array} modules - module name(s), separated by ','
-     * @param {Function?} [callback] - fired after all required modules defined,
+     * @param {string|Array} modules - module name(s), separated by ','
+     * @param {?Function} [callback] - fired after all required modules defined,
      *   passes all modules exports as parameters by the given order
-     * @param {Function?} [fallback] - function(reason)
-     * @param {Config} [config=global] - internal use
-     * @param {String} [emitter="require"] - internal use
-     * @param {Boolean} [frozen=false] - internal use
+     * @param {?Function} [fallback] - function(reason)
+     * @param {Config} [config=global] - internal use, config object
+     * @param {string} [emitter="require"] - internal use, emitter name
+     * @param {boolean} [frozen=false] - internal use, disallow name rewriting
      * @return {Promise}
-     * @private
      */
     function require(modules, callback, fallback, config, emitter, frozen){
         var _modules = String(modules).replace(rTrim, '').split(rComma);
-        var _context = new Context(config instanceof Config ? config : globalConfig);
+        var _context = new Context(config instanceof Config ? config : configGlobal);
         var _emitter = isString(emitter) ? emitter : sRequire;
         var requires;
 
@@ -1432,7 +1680,11 @@
         }
 
         return loadModules(_context, _modules, requires, _emitter, true === frozen).then(function(modules){
-            return isFunction(callback) ? callback.apply(global, modules) : modules;
+            if (isFunction(callback)) {
+                return callback.apply(global, modules);
+            } else {
+                return modules;
+            }
         }, function(reason){
             if (isFunction(fallback)) {
                 return fallback.call(global, reason);
@@ -1445,52 +1697,20 @@
     /**
      * gets / sets global config
      *
-     * @param {Object} [config] - see {@link Config}
+     * @param {Object} [config]
+     * @param {boolean} [config.debug=false]
+     * @param {boolean} [config.override=false]
+     * @param {number} [config.timeout=7] request timeout in second
+     * @param {string} [config.urlBase=''] - base url
+     * @param {string} [config.urlArgs=''] - url parameters
+     * @param {string} [config.urlExt='.js'] - resource extension
+     * @param {Object.<alias, path>} [config.pathMap] - mapping of path aliases
+     * @param {Object.<string, string|function>} [config.shimMap] - mapping of shim factories
+     * @param {function(name, parent)} [config.rewrite] - a function rewrites module name
      * @return {Config}
      */
     require.config = function(config){
-        if (config) {
-            var urlBase = config.urlBase,
-                pathMap = config.pathMap,
-                modShim = config.shim,
-                key;
-
-            // ensures the urlBase ends in a slash
-            if (urlBase && !rEndSlash.test(urlBase)) {
-                config.urlBase += '/';
-            }
-            // ensures the pathMap is not end in a slash
-            // also cleans it
-            if (pathMap) {
-                for (key in pathMap) {
-                    if (!plainObject.hasOwnProperty(key)) {
-                        pathMap[key] = nameClean(pathMap[key].replace(rEndSlash, ''));
-                    }
-                }
-            }
-
-            // ensures the rewrite is a function
-            if (!isFunction(config.rewrite)) {
-                config.rewrite = globalConfig.rewrite;
-            }
-
-            // define shim later
-            if (modShim) {
-                delete config.shim;
-            }
-
-            mixObject(globalConfig, config);
-
-            // ensures the shim definitions
-            if (modShim) {
-                for (key in modShim) {
-                    if (!plainObject.hasOwnProperty(key) && isFunction(modShim[key])) {
-                        globalConfig.shim[nameNormalize(key, globalConfig)] = modShim[key];
-                    }
-                }
-            }
-        }
-        return globalConfig;
+        return configGlobal.merge(config).clone();
     };
 
 
@@ -1500,12 +1720,12 @@
     /**
      * module 'require' factory
      *
-     * @param {Context} context
-     * @param {String} emitter
+     * @param {Context} context - module context
+     * @param {string} parent - emitter name
+     * @param {boolean} frozen - disallow name rewriting
      * @return {Function}
-     * @private
      */
-    function cjsRequire(context, emitter){
+    function cjsRequire(context, parent, frozen){
         return function(path, callback, fallback){
             if (path in context.requires) {
                 if (isFunction(callback)) {
@@ -1514,7 +1734,7 @@
                     return context.requires[path];
                 }
             } else {
-                require(path, callback, fallback, context.config, emitter, true);
+                require(path, callback, fallback, context.config, parent, frozen);
             }
         };
     }
@@ -1522,9 +1742,8 @@
     /**
      * module 'require' factory
      *
-     * @param {Context} context
+     * @param {Context} context - module context
      * @return {Object}
-     * @private
      */
     function cjsExports(context){
         return context.exports || (context.exports = {});
@@ -1533,35 +1752,32 @@
     /**
      * module 'module' factory
      *
-     * @param {Context} context
+     * @param {Context} context - module context
      * @return {Object}
-     * @private
      */
     function cjsModule(context){
-        // TODO: ensures properties/methods
         return context.module || (context.module = {
-            /** @type {Function} - module factory */
-            factory: undef,
+            /** @type {Config} - module config */
+            config: context.config,
 
             /** @type {Object} - module exports */
             exports: cjsExports(context),
 
-            /**
-             * returns config property assigned by require.config()
-             *
-             * @return {Object}
-             */
-            config: function(){
-                return context.config.config;
-            },
+            /** @type {Function} - module factory */
+            factory: undef,
 
             /**
              * converts a name to a url
              * with given config or current config
              *
-             * @param {String} name - name to convert
-             * @param {Object} [config] - config {@link Config}
-             * @return {String}
+             * @param {string} name - name to convert
+             * @param {Object} [config] - config object
+             * @param {string} [config.urlBase]
+             * @param {string} [config.urlExt]
+             * @param {string} [config.urlArgs]
+             * @param {string} [config.pathNow]
+             * @param {Object} [config.pathMap]
+             * @return {string}
              */
             toUrl: function(name, config){
                 return toUrl(name, config || context.config);
@@ -1579,8 +1795,7 @@
     /**
      * module 'isIE' factory
      *
-     * @return {Boolean}
-     * @private
+     * @return {boolean}
      */
     locModules.isIE = function(){
         return isIE;
@@ -1590,9 +1805,8 @@
      * module 'Promise' factory
      *
      * @return {Function}
-     * @private
      */
-    locModules.Promise  = function(){
+    locModules.Promise = function(){
         return Promise;
     };
 
@@ -1600,7 +1814,6 @@
      * module 'Deferred' factory
      *
      * @return {Function}
-     * @private
      */
     locModules.Deferred = function(){
         return Deferred;

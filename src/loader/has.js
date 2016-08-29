@@ -1,5 +1,5 @@
 /*!
- * AMDR - Condition loader 1.0.2 (sha1: d1d848127f5f56dcde47bbd201cf546ee9ab75ad)
+ * AMDR - Condition loader 1.1.0 (sha1: 20e2e7977a5110c0100aaa3f713e5e95225167ef)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -8,7 +8,7 @@
 //   has(feature String) Boolean
 //   has.add(feature String, definition Boolean|Function)
 
-define([], function(){
+define('has', [], function(){
     'use strict';
 
     var features = {},
@@ -18,7 +18,7 @@ define([], function(){
         return true === features[name];
     }
 
-    has.version = '1.0.2';
+    has.version = '1.1.0';
 
     has.add = function(name, definition){
         if ('function' === typeof definition) {
@@ -31,16 +31,16 @@ define([], function(){
     };
 
     // as a loader
-    has.load = function(name, module, emitter){
-        module.load();
-    };
-
-    has.normalize = function(name, normalize){
+    has.load = function(request, name){
         var result = rHasName.exec(name);
         if (result) {
             result = has(result[1]) ? result[2] : result[3];
         }
-        return normalize(result || '');
+        if (result) {
+            return request.load(result);
+        } else {
+            throw new Error('unable to normalize name');
+        }
     };
 
     return has;

@@ -1,5 +1,5 @@
 /*!
- * AMDR - CSS file loader 1.0.2 (sha1: 41e8ba36c247c4a9fc34e3e222245c7094bf3882)
+ * AMDR - CSS file loader 1.1.0 (sha1: 0a8ff25aabcb03682ff9e93446063beeff34f926)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -73,11 +73,11 @@
         eventOnload = 'onload',
         eventOnfail = 'onerror',
 
-        // collection: url maps id
-        idMap = {},
+        // collection: link requests
+        requests = {},
 
         // collection: link elements
-        links = {},
+        elements = {},
 
         // collection: loading timeouts
         queue = {},
@@ -86,10 +86,7 @@
         delay = [],
 
         // timer: loading complete checker
-        timer = 0,
-
-        // id seed
-        seed  = 0;
+        timer = 0;
 
     // browser features detecting
     // uses data url to avoid extra requests
@@ -106,54 +103,59 @@
         }
     });
 
-    define(['exports'], function(exports){
+    define('css', ['exports', 'Deferred'], function(exports, Deferred){
         'use strict';
 
-        exports.version = '1.0.2';
+        exports.version = '1.1.0';
 
-        exports.load = function(name, module, emitter){
-            var id = idMap[name] || (idMap[name] = 'amdr-css-' + seed++);
+        exports.load = function(request, name){
+            var _name = name.split('#').shift();
 
-            if (!links[id]) {
-                if (waitTest) {
-                    // waiting for browser features detecting
-                    delay.push([id, name, module]);
-                } else {
-                    // defines current one
-                    moduleDefine.call(global, id, name, module);
-                }
+            if (requests.hasOwnProperty(_name)) {
+                return requests[_name].promise;
             }
+
+            var deferred = new Deferred();
+            requests[_name] = deferred;
+
+            // waiting for browser features detecting
+            if (waitTest) {
+                delay.push([_name, request, deferred]);
+
+            // defines current one
+            } else {
+                moduleDefine.call(global, _name, request, deferred);
+            }
+
+            return deferred.promise;
         };
 
         return exports;
     });
 
-    function moduleDefine(id, name, module){
-        var link = links[id] = createLink(name);
-
-        // attributes
-        link.id = id;
+    function moduleDefine(name, request, deferred){
+        var link = elements[name] = createLink(name);
 
         // events handlers
         link[eventOnload] = function(rules){
             if (!catchOnload || hasCssRule(link)) {
                 // load success
-                moduleComplete(id, link, true);
-                delayExecute(module.resolve, link);
+                moduleComplete(name, link, true);
+                delayExecute(deferred.resolve, link);
             } else {
                 // load failure: rules=0
                 link[eventOnfail]();
             }
         };
         link[eventOnfail] = function(){
-            moduleComplete(id, link);
-            delayExecute(module.reject, new Error('load failures.'));
+            moduleComplete(name, link);
+            delayExecute(deferred.reject, new Error('load failures.'));
         };
-        // adds timeout id to queue
-        queue[id] = setTimeout(function(){
-            moduleComplete(id, link);
-            delayExecute(module.reject, new Error('load timeout.'));
-        }, isOpera ? 3000 : 1000 * module.config().timeout);
+        // adds timeout handler to queue
+        queue[name] = setTimeout(function(){
+            moduleComplete(name, link);
+            delayExecute(deferred.reject, new Error('load timeout.'));
+        }, isOpera ? 3000 : 1000 * request.config.timeout);
 
         // inserts to document
         insertPoint.appendChild(link);
@@ -165,15 +167,15 @@
         }
     }
 
-    function moduleComplete(id, link, success){
+    function moduleComplete(name, link, success){
         // stops timeout timer
-        clearTimeout(queue[id]);
+        clearTimeout(queue[name]);
 
         // removed from queue
-        delete queue[id];
+        delete queue[name];
 
         // releases memory
-        links[id] = 1;
+        elements[name] = 1;
 
         // removed events handlers, prevents memory leaks
         link[eventOnfail] = link[eventOnload] = '';
@@ -236,8 +238,8 @@
 
     function hasCssRule(link){
         try {
-            var sheet = link.sheet || link.styleSheet,
-                rules = sheet.rules || sheet.cssRules;
+            var sheet = link.sheet || link.styleSheet;
+            var rules = sheet.rules || sheet.cssRules;
             return !rules /* Webkit */ || 0 < rules.length;
         } catch(error) {
             // IE only throws error when cross domain request failed.
@@ -246,11 +248,11 @@
     }
 
     function checkComplete(){
-        var id, link, sheet, rules, cross;
+        var name, link, sheet, rules, cross;
 
-        for (id in queue) {
+        for (name in queue) {
             cross = isWebkit;
-            link = links[id];
+            link = elements[name];
 
             // Webkit: creates link.sheet right after file loaded
             if (sheet = link.sheet) {
@@ -269,7 +271,7 @@
         }
 
         // continue or stop
-        timer = id ? setTimeout(checkComplete, 100) : 0;
+        timer = name ? setTimeout(checkComplete, 100) : 0;
     }
 
     function isCrossDomain(error){

@@ -2,40 +2,38 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Test: loader/has</title>
+    <title>Test: has</title>
     <link href="qunit/qunit.css" rel="stylesheet">
     <script src="qunit/qunit.js"></script>
     <script src="../src/amdr.js"></script>
-    <script src="global.js"></script>
+    <script src="prepare.js"></script>
 </head>
 <body>
 <div id="qunit"></div>
 <script>
 (function(){
 
-    var c_test = false;
-
-    QUnit.asyncTest('load has module', 2, function(assert){
-        require('loader/has', function(has){
-            QUnit.ok(true, 'loader is loaded.');
-            has.add('test', c_test = true);
-            assert.ok(true, 'condition <test> is true.');
-        }, fallback(assert)).always(QUnit.start);
+    QUnit.asyncTest('load has module', 3, function(assert){
+        wait(require('has', function(has){
+            assert.ok('function' === typeof has, 'has() is function.');
+            assert.ok('function' === typeof has.add, 'has.add() is function.');
+            assert.ok(has.add('test', true)('test'), 'condition <test> is true.');
+        }, fallback(assert)));
     });
 
     QUnit.asyncTest('load css by "has" condition', 2, function(assert){
-        require([
-            'loader/has!test',
-            '?loader/css!//static.jquery.com/files/rocker/css/reset.css',
-            ':loader/css!//static.jquery.com/files/rocker/css/none.css'
-        ].join(''), function(exports){
-            assert.ok(c_test, 'style is loaded.');
+        wait(require(['has', [
+            'has!test',
+            '?css!//static.jquery.com/files/rocker/css/reset.css',
+            ':css!//static.jquery.com/files/rocker/css/none.css'
+        ].join('')], function(has, exports){
+            assert.ok(has.add('test', true)('test'), 'condition <test> is true.');
             assert.strictEqual(exports && exports.nodeName, 'LINK', 'exports is correct.');
-        }, fallback(assert)).always(QUnit.start);
+        }, fallback(assert)));
     });
 
     function fallback(assert){ return function(reason){
-        assert.expect(1); assert.notOk(c_test, reason.message || reason);
+        assert.expect(1); assert.ok(false, reason.message || reason);
     }; }
 
 }());

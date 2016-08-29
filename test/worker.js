@@ -29,7 +29,7 @@
 
     try {
         worker.importScripts('../src/amdr.js');
-        worker.importScripts('./global.js');
+        worker.importScripts('./prepare.js');
         worker.postMessage({
             action: 'ready',
             returns: true

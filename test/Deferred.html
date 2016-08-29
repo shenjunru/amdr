@@ -6,7 +6,7 @@
     <link href="qunit/qunit.css" rel="stylesheet">
     <script src="qunit/qunit.js"></script>
     <script src="../src/amdr.js"></script>
-    <script src="global.js"></script>
+    <script src="prepare.js"></script>
 </head>
 <body>
 <div id="qunit"></div>
@@ -17,53 +17,61 @@
         function log(object){
             return object;
         }
-        function callback(assert){ return function(result){
-            assert.ok(true, log('callback: ' + result));
-            throw new Error('from callback(assert)');
+        function callback(assert, status){ return function(result){
+            assert.ok(status, log('callback: ' + result));
+            throw new Error('from callback');
         }; }
-        function fallback(assert){ return function(reason){
-            assert.ok(true, log('fallback: ' + reason));
+        function fallback(assert, status){ return function(reason){
+            assert.ok(status, log('fallback: ' + reason));
             return new Error('from fallback');
         }; }
 
         module('deferred');
 
-        QUnit.test('resolved callback(assert)', 1, function(assert){
+        QUnit.asyncTest('resolved callback(assert)', 1, function(assert){
             var deferred = new Deferred();
             deferred.resolve('foo');
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, true), fallback(assert, false));
+            wait(deferred);
         });
 
-        QUnit.test('rejected fallback(assert)', 1, function(assert){
+        QUnit.asyncTest('rejected fallback(assert)', 1, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, false), fallback(assert, true));
             deferred.reject('bar');
+            wait(deferred);
         });
 
-        QUnit.test('resolved with fallback(assert)', 2, function(assert){
+        QUnit.asyncTest('resolved with fallback(assert)', 2, function(assert){
             var deferred = new Deferred();
             deferred.resolve('foo');
-            deferred.then(callback(assert), fallback(assert)).then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, true), fallback(assert, false))
+                .then(callback(assert, false), fallback(assert, true));
+            wait(deferred);
         });
 
-        QUnit.test('rejected with callback(assert)', 2, function(assert){
+        QUnit.asyncTest('rejected with callback(assert)', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert), fallback(assert)).then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, false), fallback(assert, true))
+                .then(callback(assert, true), fallback(assert, false));
             deferred.reject('bar');
+            wait(deferred);
         });
 
-        QUnit.test('resolve with 2 callbacks arounds', 2, function(assert){
+        QUnit.asyncTest('resolve with 2 callbacks arounds', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, true), fallback(assert, false));
             deferred.resolve('foo');
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, true), fallback(assert, false));
+            wait(deferred);
         });
 
-        QUnit.test('reject with 2 failbacks arounds', 2, function(assert){
+        QUnit.asyncTest('reject with 2 failbacks arounds', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, false), fallback(assert, true));
             deferred.reject('foo');
-            deferred.then(callback(assert), fallback(assert));
+            deferred.then(callback(assert, false), fallback(assert, true));
+            wait(deferred);
         });
     });
 

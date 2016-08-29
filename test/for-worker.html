@@ -12,7 +12,7 @@
 (function(){
 
     var $callback, $fallback;
-    var worker = new Worker('worker.js');
+    var worker = new Worker('./worker.js');
     worker.addEventListener('error', function(event){
         event.preventDefault();
         console.log(event);
@@ -48,17 +48,6 @@
 
     QUnit.config.autostart = false;
 
-    QUnit.asyncTest('require "require"', function(assert){
-        callWorker(assert, function(worker, callback, fallback){
-            worker.require('require', function(require){
-                callback('function' === typeof require);
-            }, fallback);
-        }, function(returns){
-            assert.expect(1);
-            assert.ok(returns, 'require is function');
-        });
-    });
-
     QUnit.asyncTest('require "exports"', function(assert){
         callWorker(assert, function(worker, callback, fallback){
             worker.require('exports', function(exports){
@@ -70,9 +59,20 @@
         });
     });
 
+    QUnit.asyncTest('require "require"', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
+            worker.require('require', function(require){
+                callback('function' === typeof require);
+            }, fallback);
+        }, function(returns){
+            assert.expect(1);
+            assert.ok(returns, 'require is function');
+        });
+    });
+
     QUnit.asyncTest('require "runner"', function(assert){
         callWorker(assert, function(worker, callback, fallback){
-            worker.require('runner', function(){
+            worker.require('assets/runner', function(){
                 callback('object' === typeof worker.runner);
             }, fallback);
         }, function(returns){
@@ -81,9 +81,20 @@
         });
     });
 
+    QUnit.asyncTest('require "multiple"', function(assert){
+        callWorker(assert, function(worker, callback, fallback){
+            worker.require('assets/multiple', function(exports){
+                callback(exports);
+            }, fallback);
+        }, function(exports){
+            assert.expect(1);
+            assert.equal(exports.name, 'multiple-1-1', 'multiple-1-1 is loaded.');
+        });
+    });
+
     QUnit.asyncTest('require non-existent', function(assert){
         callWorker(assert, function(worker, callback, fallback){
-            worker.require('non-existent', function(){
+            worker.require('assets/non-existent', function(){
                 // ie 6-8 will goes here.
                 callback(false);
             }, function(){
@@ -98,7 +109,7 @@
     QUnit.asyncTest('require abs path', function(assert){
         callWorker(assert, function(worker, callback, fallback){
             var path = location.pathname.split('/').slice(0, -1).join('/');
-            worker.require(path = path + '/bar-define.php?id=abs', function(exports){
+            worker.require(path = path + '/assets/bar-define.php?id=abs', function(exports){
                 callback('bar-abs' === exports, 'require: ' + path);
             }, fallback);
         }, function(result, message){
@@ -110,7 +121,7 @@
     QUnit.asyncTest('require 10 modules', function(assert){
         callWorker(assert, function(worker, callback, fallback){
             for (var i = 0, deps = [], exps = []; i < 10; i++) {
-                deps.push('foo/foo-define.php?id=' + i + '&r=' + Math.random());
+                deps.push('foo/assets/foo-define.php?id=' + i + '&r=' + Math.random());
                 exps.push('foo-' + i + '#bar-' + i);
             }
             worker.require(deps, function(){

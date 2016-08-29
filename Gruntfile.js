@@ -22,10 +22,6 @@ module.exports = function(grunt) {
             'has': {
                 file: 'src/loader/has.js',
                 version: '<%= pkg.loaders.has.version %>'
-            },
-            'hot': {
-                file: 'src/loader/hot.js',
-                version: '<%= pkg.loaders.hot.version %>'
             }
         },
         uglify: {
@@ -57,16 +53,6 @@ module.exports = function(grunt) {
                         .replace('${name}', 'AMDR - Condition loader')
                         .replace('${checksum}', '<%= version.has.checksum %>')
                         .replace('${version}', '<%= version.has.version %>')
-                }
-            },
-            'hot': {
-                src:  'src/loader/hot.js',
-                dest: 'dist/loader/hot.js',
-                options: {
-                    banner: banner
-                        .replace('${name}', 'AMDR - Hot module loader')
-                        .replace('${checksum}', '<%= version.hot.checksum %>')
-                        .replace('${version}', '<%= version.hot.version %>')
                 }
             }
         },
