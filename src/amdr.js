@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.3.0 (sha1: 284537fc0367c00d2a34409d5fb42d5e731239ca)
+ * AMDR 1.3.1 (sha1: b1efd3889491438663809cdd52e8950a0169df4b)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -352,8 +352,9 @@
      *
      * @param {Module} module - module instance
      * @param {string} parent - emitter name
+     * @param {?string} ext - resource extension
      */
-    function scriptLoad(module, parent){
+    function scriptLoad(module, parent, ext){
         var timing = module.context.config.timeout;
         var status = { done: false, time: undef };
         var script;
@@ -381,9 +382,9 @@
         }
 
         if (isWebWorker) {
-            script = scriptImport(module, status, parent);
+            script = scriptImport(module, status, parent, ext);
         } else {
-            script = scriptAttach(module, status, parent);
+            script = scriptAttach(module, status, parent, ext);
         }
 
         function done(){
@@ -398,15 +399,16 @@
      * @param {Module} module - module instance
      * @param {Object} status - status object
      * @param {string} parent - emitter name
+     * @param {?string} ext - resource extension
      * @return {void}
      */
-    function scriptImport(module, status, parent){
+    function scriptImport(module, status, parent, ext){
         // adds module to queue
         amdImportQ.push(module);
 
         try {
             // importing
-            global.importScripts(nameToUrl(module.name, module.context.config));
+            global.importScripts(nameToUrl(module.name, module.context.config, ext));
             // import successful
             scriptComplete(module, status, undef);
         } catch (reason) {
@@ -431,9 +433,10 @@
      * @param {Module} module - module instance
      * @param {Object} status - status object
      * @param {string} parent - emitter name
+     * @param {?string} ext - resource extension
      * @return {Element} script element
      */
-    function scriptAttach(module, status, parent){
+    function scriptAttach(module, status, parent, ext){
         var script = document.createElement('script');
 
         // adds to collection
@@ -466,7 +469,7 @@
         script.charset = 'utf-8';
         script.async = script.defer = true;
         script.type = 'text/javascript';
-        script.src = nameToUrl(module.name, module.context.config);
+        script.src = nameToUrl(module.name, module.context.config, ext);
 
         // inserts
         return insertPoint.appendChild(script);
@@ -533,7 +536,6 @@
     }
 
     ConfigProto.debug    = false;
-    ConfigProto.override = false;
     ConfigProto.timeout  = 7;
     ConfigProto.urlBase  = '';
     ConfigProto.urlArgs  = '';
@@ -547,10 +549,9 @@
      *
      * @param {string} name - module name
      * @param {string} parent - emitter name
-     * @param {Config} config - context config
      * @return {string}
      */
-    ConfigProto.rewrite = function(name, parent, config){
+    ConfigProto.rewrite = function(name, parent){
         return name;
     };
 
@@ -607,11 +608,6 @@
         // ensures the debug is a boolean
         if ('debug' in config) {
             this.debug    = true === config.debug;
-        }
-
-        // ensures the override is a boolean
-        if ('override' in config) {
-            this.override = true === config.override;
         }
 
         // ensures the timeout is a positive number
@@ -1002,7 +998,7 @@
     function toUrl(name, config){
         var _name = nameNormalize(name, config);
         if (rQizHash.test(_name)) {
-            return nameToUrl(name, config);
+            return nameToUrl(name, config, undef);
         }
 
         var _path = _name.split(rQizHash).shift();
@@ -1021,7 +1017,10 @@
      * converts name to url with config
      *
      * @param {string} name - normalized module name
-     * @param {Config} config - config instance
+     * @param {Object} [config] - config object
+     * @param {string} [config.urlBase]
+     * @param {string} [config.urlExt]
+     * @param {string} [config.urlArgs]
      * @param {string} [ext] - resource extension
      * @return {string}
      */
@@ -1074,7 +1073,9 @@
      * normalizes module name
      *
      * @param {string} name - module name
-     * @param {Config} config - config instance
+     * @param {Object} [config] - config object
+     * @param {string} [config.pathNow]
+     * @param {Object} [config.pathMap]
      * @return {string}
      */
     function nameNormalize(name, config){
@@ -1238,7 +1239,7 @@
     function loadModule(context, index, name, parent, frozen){
         var promise = moduleLoad(context, name, parent, frozen);
         promise = promise.then(function(module){
-            return hasOwn.call(locModules, name) ? module : moduleSettle(module, parent, frozen);
+            return hasOwn.call(locModules, name) ? module : moduleSettle(module, frozen);
         });
         return promise.then(callback, fallback);
 
@@ -1311,7 +1312,7 @@
 
             // loads module file
             if (module.pending) {
-                scriptLoad(module, parent);
+                scriptLoad(module, parent, '' === currHash ? undef : '');
             }
 
             // get module instance promise
@@ -1332,7 +1333,7 @@
 
             // get plugin settling promise
             promise = promise.then(function(module){
-                return hasOwn.call(locModules, name) ? module : moduleSettle(module, sRequire, true);
+                return hasOwn.call(locModules, name) ? module : moduleSettle(module, true);
             });
 
             // get module defining promise
@@ -1441,51 +1442,53 @@
      * @param {Module} module - module instance
      */
     function moduleDefine(name, imports, insides, factory, module){
+        var _module = module;
+
         // if name is given and not matched with current one,
         // gets the correct module & context instance.
-        if (name && name !== module.name) {
-            var _name = nameNormalize(name, module.context.config);
-            if (_name && _name !== module.name) {
-                module  = module.context.getModule(_name);
+        if (name && name !== _module.name) {
+            var _name = nameNormalize(name, _module.context.config);
+            if (_name && _name !== _module.name) {
+                _module  = _module.context.getModule(_name);
             }
         }
 
-        if (module.defined && !configGlobal.override) {
+        if (_module.defined) {
             // do not do more define if already done. can happen if there
             // are multiple define calls for the same module. that is not
             // a normal, common case, but it is also not unexpected.
             makeError({
                 message: 'duplicate defined.',
-                parent:  module.name,
-                source:  module.name
+                parent:  _module.name,
+                source:  _module.name
             });
             return;
         }
 
         // sets module as executing
-        module.pending = false;
+        _module.pending = false;
 
         // sets module as defined
-        module.defined = true;
+        _module.defined = true;
 
         // saves module dependencies
-        module.imports = imports;
-        module.insides = insides;
+        _module.imports = imports;
+        _module.insides = insides;
 
         // saves module factory
         if (isFunction(factory)) {
-            module.factory = factory;
+            _module.factory = factory;
         } else {
-            module.factory = function(){
+            _module.factory = function(){
                 return factory;
             };
         }
 
         // module defined
-        module.define({
-            imports: module.imports,
-            insides: module.insides,
-            factory: module.factory
+        _module.define({
+            imports: _module.imports,
+            insides: _module.insides,
+            factory: _module.factory
         });
     }
 
@@ -1493,18 +1496,17 @@
      * module defining
      *
      * @param {Module} module - module instance
-     * @param {string} parent - emitter name
      * @param {boolean} frozen - disallow name rewriting
      * @param {boolean} [settle] - internal only
      */
-    function moduleSettle(module, parent, frozen, settle){
+    function moduleSettle(module, frozen, settle){
         if (module.settled) {
             return module.promise;
         }
 
         if (undef === settle) {
             return module.request.then(function(){
-                return moduleSettle(module, parent, frozen, true);
+                return moduleSettle(module, frozen, true);
             });
         }
 
@@ -1573,22 +1575,22 @@
      * @param {Function|Object} factory - a function with returns or an object
      */
     function define(name, dependencies, factory){
-        var arity = arguments.length;
-        var module = scriptState && getCurrentModule();
+        var _arity = arguments.length;
+        var _module = scriptState && getCurrentModule();
         var _imports = cjsModules;
         var _insides, _factory, _name, name_;
 
         // fixes arguments
-        if (2 === arity) {
+        if (2 === _arity) {
             if (isString(name)) {
                 _name = name;
             } else {
                 _imports = name;
             }
             factory = dependencies;
-        } else if (1 === arity) {
+        } else if (1 === _arity) {
             factory = name;
-        } else if (3 === arity) {
+        } else if (3 === _arity) {
             _name = name;
             _imports = dependencies;
         }
@@ -1622,8 +1624,8 @@
         name_ = _name && nameNormalize(_name, configGlobal);
 
         // amd module in ie browser
-        if (scriptState && module) {
-            return void(amdScriptQ[module.name].push([name_, _imports, _insides, _factory]));
+        if (scriptState && _module) {
+            return void(amdScriptQ[_module.name].push([name_, _imports, _insides, _factory]));
         }
 
         // amd module in other browsers
@@ -1644,7 +1646,8 @@
                 });
             }
         }
-        moduleDefine(name_, _imports, _insides, _factory, new Context(configGlobal).getModule(name_));
+        _module = new Context(configGlobal).getModule(name_);
+        moduleDefine(name_, _imports, _insides, _factory, _module);
     }
 
     /**
@@ -1652,7 +1655,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.3.0',
+        version: '1.3.1',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1699,7 +1702,6 @@
      *
      * @param {Object} [config]
      * @param {boolean} [config.debug=false]
-     * @param {boolean} [config.override=false]
      * @param {number} [config.timeout=7] request timeout in second
      * @param {string} [config.urlBase=''] - base url
      * @param {string} [config.urlArgs=''] - url parameters

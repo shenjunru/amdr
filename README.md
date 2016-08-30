@@ -1,6 +1,6 @@
 # AMDR (Asynchronous Module Define & Require)
 amdr.js is a small and very fast AMD-compliant asynchronous loader.<br>
-Size: less than 10KB (>5KB gzipped) using UglifyJS.
+Size: less than 11KB (>5KB gzipped) using UglifyJS.
 
 ----------------------------------------
 
@@ -25,9 +25,9 @@ Size: less than 10KB (>5KB gzipped) using UglifyJS.
 * `config.urlArgs` - string of request parameter(s) to be appended (ex. 'key1=value1&key2=value2')
 * `config.urlExt` - string of default file extension (default is `'.js'`)
 * `config.pathMap` - object of path mappings for module names not found directly under baseUrl.
-  The path settings are assumed to be relative to baseUrl, unless the paths 
+  The path settings are assumed to be relative to baseUrl, unless the paths
   setting starts with a "/" or has a URL protocol in it ("like http:").
-* `config.shimMap` - object of shim mappings for traditional module. 
+* `config.shimMap` - object of shim mappings for traditional module.
 * `config.rewrite(name, parent)` - function to rewrite the module name.
 
 ### Example:
@@ -143,11 +143,12 @@ This is the conditional module loader.
 ----------------------------------------
 
 ## Changes:
-* 1.3.0
-  + core functions refactoring, simplify the plugin logic.
-  + separates module defining and executing.
+* 1.3.x
+  + rewrites core functions.
   + supports dependency name rewriting by plugin.
-  + simplify `Promise` and `Deferred`
+  + separates module defining and executing.
+  + simplifies the internal plugin logic.
+  + simplifies `Promise` and `Deferred`
     - removed `promise.always()` function.
     - removed `deferred.notify()` function.
     - removed `progback` parameter of `promise.then()`.
@@ -157,7 +158,7 @@ This is the conditional module loader.
 * 1.2.x
   + supports module shim.
   + bug fix.
-  
+
 * 1.1.x
   + exposes module dependencies, factory, parent and status.
   + supports global module name rewriting.
