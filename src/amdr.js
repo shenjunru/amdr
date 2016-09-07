@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.3.1 (sha1: 29c16570a7175ac9cb88322ac6a21d2b91424fc8)
+ * AMDR 1.3.2 (sha1: a27a3e01a036b86963d1ec905a2b51d556e7d7b5)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -14,6 +14,11 @@
 
 // Global imports (browser):
 //   document {createElement(), getElementsByTagName()}
+
+// CommonJS module:
+// define(function(require, exports, module) {
+//     // Put traditional CommonJS module content here
+// });
 
 // Defined modules:
 //   require, exports, module - CommonJS modules.
@@ -83,7 +88,7 @@
         toString    = Object.prototype.toString,
 
         // function: reference of Array indexOf function
-        indexOf     = Array.prototype.indexOf || function(object, offset){
+        arrIndex    = Array.prototype.indexOf || function(object, offset){
             var length = this.length >>> 0;
 
             offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
@@ -97,7 +102,8 @@
             return -1;
         },
 
-        map    = Array.prototype.map || function(callback) {
+        // function: reference of Array map function
+        arrMap      = Array.prototype.map || function(callback) {
             var index = 0;
             var length = this.length >>> 0;
             var result = new Array(length);
@@ -111,11 +117,11 @@
             return result;
         },
 
-        // class: Deferred
+        // class: reference of native Promise class
         NPromise    = global.Promise,
 
-        // class: Deferred
-        Deferred    = NPromise ? DeferredNative : DeferredPolyfill,
+        // class: reference of Deferred implementation
+        IDeferred   = NPromise ? DeferredNative : DeferredPolyfill,
 
         // prototype: config prototype
         ConfigProto = Config.prototype,
@@ -235,8 +241,8 @@
         sResolved = 'resolved',
         sRejected = 'rejected',
 
-        // string: default dependencies
-        cjsModules = 'exports,module,require';
+        // array: common js dependencies
+        cjsImports = ['require', 'exports', 'module'];
 
     // features detections
     // =========================================================================
@@ -273,6 +279,16 @@
      */
     function isString(object){
         return '[object String]' === toString.call(object);
+    }
+
+    /**
+     * determines the object is an array
+     *
+     * @param {*} object
+     * @return {boolean}
+     */
+    function isArray(object){
+        return '[object Array]' === toString.call(object);
     }
 
     /**
@@ -552,6 +568,7 @@
      * @return {string}
      */
     ConfigProto.rewrite = function(name, parent){
+        /* eslint no-unused-vars:off */
         return name;
     };
 
@@ -562,6 +579,7 @@
      * @param {Object} [memo] - memo data
      */
     ConfigProto.log = function(error, memo){
+        /* eslint no-console:off */
         if (console) {
             Function.prototype.call.call(
                 console.error || console.log,
@@ -584,7 +602,7 @@
                 if ('pathMap' === key || 'shimMap' === key) {
                     iterate(this[key], function(key, value){
                         this[key] = value;
-                    }, config[key]);
+                    }, value);
                 } else {
                     config[key] = this[key];
                 }
@@ -914,6 +932,24 @@
         };
     }
 
+    /**
+     * deferred promise class
+     *
+     * @param {function(resolve, reject)} executor
+     * @constructor
+     */
+    function Deferred(executor){
+        var deferred = this;
+        IDeferred.call(deferred);
+        if (isFunction(executor)) {
+            try {
+                executor(deferred.resolve, deferred.reject);
+            } catch (error) {
+                deferred.reject(error);
+            }
+        }
+    }
+
 
     // promise helpers
     // =========================================================================
@@ -967,16 +1003,9 @@
         });
     }
 
-    /**
-     *
-     * @param {*|Promise} promiseOrValue
-     * @param {Function} [callback] - resolved handler
-     * @param {Function} [fallback] - rejected handler
-     * @return {Promise}
-     */
-    function promiseWhen(promiseOrValue, callback, fallback) {
-        return promiseResolve(promiseOrValue).then(callback, fallback);
-    }
+    // exports promise helpers
+    Deferred.resolve = NPromise ? NPromise.resolve.bind(NPromise) : promiseResolve;
+    Deferred.reject = NPromise ? NPromise.reject.bind(NPromise) : promiseRejected;
 
 
     // module name helpers
@@ -987,7 +1016,7 @@
      * with given config or current config
      *
      * @param {string} name - name to convert
-     * @param {Object} [config] - config object
+     * @param {Object} config - config object
      * @param {string} [config.urlBase]
      * @param {string} [config.urlExt]
      * @param {string} [config.urlArgs]
@@ -1017,7 +1046,7 @@
      * converts name to url with config
      *
      * @param {string} name - normalized module name
-     * @param {Object} [config] - config object
+     * @param {Object} config - config object
      * @param {string} [config.urlBase]
      * @param {string} [config.urlExt]
      * @param {string} [config.urlArgs]
@@ -1058,7 +1087,7 @@
 
         // cleans 'path/..'
         var index, offset = 1, syms = name.split(sSlash);
-        while ( 0 < (index = indexOf.call(syms, '..', offset)) ) {
+        while ( 0 < (index = arrIndex.call(syms, '..', offset)) ) {
             if (rDotSkip.test(syms[index -= 1])) {
                 offset++;
             } else {
@@ -1100,7 +1129,7 @@
                         temp = syms.slice(0, i).join(sSlash);
                         if (hasOwn.call(maps, temp)) {
                             /*jshint boss:true*/
-                            if (temp = maps[temp]) {
+                            if ((temp = maps[temp])) {
                                 syms.splice(0, i, temp); // replace
                             } else {
                                 syms.splice(0, i); // delete
@@ -1150,7 +1179,7 @@
      */
     function extractFactoryRequires(dependencies, factory){
         var requires = [], offset = 0, source, params;
-        while ( -1 < (offset = indexOf.call(dependencies, sRequire, offset)) ) {
+        while ( -1 < (offset = arrIndex.call(dependencies, sRequire, offset)) ) {
             if (undef === source) {
                 source = String(factory).replace(rComment, '');
                 params = source.replace(rFnParams, '$1').replace(rTrim, '').split(rComma);
@@ -1278,7 +1307,7 @@
      */
     function moduleLoad(context, name, parent, frozen){
         if (hasOwn.call(locModules, name)) {
-            return promiseResolved(locModules[name](context, parent, frozen));
+            return Deferred.resolve(locModules[name](context, parent, frozen));
         }
 
         var fullName = name.split('!').shift();
@@ -1288,7 +1317,7 @@
         var destName, promise, module;
 
         if (!currName) {
-            return promiseRejected(makeError({
+            return Deferred.reject(makeError({
                 message: ('' === pipeName ? 'module' : 'plugin') + ' name empty.',
                 parent:  parent,
                 source:  name
@@ -1316,7 +1345,7 @@
             }
 
             // get module instance promise
-            promise = promiseResolved(module);
+            promise = Deferred.resolve(module);
 
         // external loading
         } else {
@@ -1365,7 +1394,8 @@
                 module.pending = false;
 
                 try {
-                    var local = false, result = exports.load(/* request */{
+                    var local = false;
+                    var result = exports.load(/* request */{
                         /** @type {string} */
                         params: currHash,
 
@@ -1401,17 +1431,17 @@
                             return toUrl(name, config || context.config);
                         }
                     }, destName, parent, module.parents);
-                    promiseWhen(result, function(result){
+                    Deferred.resolve(result).then(function(result){
                         if (local) {
                             var imports = result.imports;
                             var insides = result.insides;
 
                             // rewrites pipe resource name
                             if (!frozen && isFunction(exports.rewrite)) {
-                                imports = imports && map.call(imports, function(name){
+                                imports = imports && arrMap.call(imports, function(name){
                                     return exports.rewrite(name, module.name);
                                 });
-                                insides && insides && map.call(insides, function(name){
+                                insides && insides && arrMap.call(insides, function(name){
                                     return exports.rewrite(name, module.name);
                                 });
                             }
@@ -1520,9 +1550,9 @@
 
         // resolves module
         function callback(dependencies){
-            var context    = module.context;
-            var cjsModule  = context.module;
-            var cjsExports = context.exports;
+            var cjsContext = module.context;
+            var cjsExports = cjsContext.exports;
+            var cjsModule  = cjsContext.module;
             var cjsReturns, returns;
 
             // saves module factory
@@ -1543,21 +1573,26 @@
             cjsReturns = cjsModule && cjsModule.exports;
             if (undef !== cjsReturns && cjsExports !== cjsReturns) {
                 returns = cjsReturns;
-            } else if (undef === returns && cjsExports) {
+            } else if (undef === returns && undef !== cjsExports) {
                 returns = cjsExports;
             }
 
-            // saves module exports
-            module.exports = returns;
-            if (undef !== cjsModule) {
-                context.module.exports = returns;
-            }
-            if (undef !== cjsExports) {
-                context.exports = returns;
-            }
+            // convert value to promise
+            returns = Deferred.resolve(returns);
 
-            // module resolved
-            module.settle(returns);
+            // saves module exports
+            returns.then(function(returns){
+                module.exports = returns;
+                if (undef !== cjsExports) {
+                    cjsContext.exports = returns;
+                }
+                if (undef !== cjsModule) {
+                    cjsModule.exports = returns;
+                }
+            });
+
+            // module resolved or rejected
+            returns.then(module.settle, module.reject);
         }
 
         // rejects module
@@ -1573,64 +1608,85 @@
      * @param {string} [name] - module name
      * @param {Array.<string>} [dependencies] - module dependencies
      * @param {Function|Object} factory - a function with returns or an object
+     * @throws TypeError
      */
     function define(name, dependencies, factory){
         var _arity = arguments.length;
+        if (0 === _arity) {
+            return;
+        }
+
         var _module = scriptState && getCurrentModule();
-        var _imports = cjsModules;
-        var _insides, _factory, _name, name_;
+        var _imports, _insides, _factory, factory_, _name, name_;
 
         // fixes arguments
         if (2 === _arity) {
-            if (isString(name)) {
+            // handle: define(name, factory) / define(dependencies, factory)
+            if (isArray(name)) {
+                _imports = name;
+            } else if (isString(name)) {
                 _name = name;
             } else {
-                _imports = name;
+                throw new TypeError(name);
             }
-            factory = dependencies;
+            _factory = dependencies;
         } else if (1 === _arity) {
-            factory = name;
-        } else if (3 === _arity) {
-            _name = name;
-            _imports = dependencies;
+            // handle: define(factory)
+            _factory = name;
+        } else {
+            // handle: define(name, dependencies, factory)
+            if (!isString(_name = name)) {
+                throw new TypeError(_name);
+            }
+            if (!isArray(_imports = dependencies)) {
+                throw new TypeError(_imports);
+            }
+            _factory = factory;
         }
 
-        if (isFunction(factory)) {
-            // fixes dependencies
-            if (cjsModules === _imports && !factory.length) {
-                _imports = '';
-            }
-            _imports = _imports && ('' + _imports).replace(rTrim, '');
-            _imports = _imports ? _imports.split(rComma) : [];
+        // fixes dependencies
+        if (isString(_imports)) {
+            _imports = _imports.split(rComma);
+        }
+        if (isArray(_imports)) {
+            _imports = arrMap.call(_imports, function(name){
+                return name.replace(rTrim, '');
+            });
+        }
 
-            // fixes factory
-            _factory = factory;
-            if (_factory.length) {
-                // extracts requires in the factory
+        // fixes factory
+        if (isFunction(_factory)) {
+            factory_ = _factory;
+
+            // extracts requires in the factory
+            if (factory_.length) {
+                if (undef === _imports) {
+                    _imports = cjsImports;
+                }
                 _insides = extractFactoryRequires(_imports, _factory);
             }
         } else {
-            // fixes dependencies
-            if (cjsModules === _imports) {
-                _imports = [];
-            }
-
-            // fixes factory
-            _factory = function(){
-                return factory;
+            factory_ = function(){
+                return _factory;
             };
         }
 
+        // fixes dependencies
+        if (undef === _imports) {
+            _imports = [];
+        }
+
+        // fixes name
         name_ = _name && nameNormalize(_name, configGlobal);
 
-        // amd module in ie browser
+        // amd module in IE browser
         if (scriptState && _module) {
-            return void(amdScriptQ[_module.name].push([name_, _imports, _insides, _factory]));
+            return void(amdScriptQ[_module.name].push([name_, _imports, _insides, factory_]));
         }
 
         // amd module in other browsers
         if (!scriptState && (0 < runScripts) && (!name_ || name_ in actScripts)) {
-            return void(amdScriptQ.push([name_, _imports, _insides, _factory]));
+            return void(amdScriptQ.push([name_, _imports, _insides, factory_]));
         }
 
         // global define / worker import module
@@ -1647,7 +1703,7 @@
             }
         }
         _module = new Context(configGlobal).getModule(name_);
-        moduleDefine(name_, _imports, _insides, _factory, _module);
+        moduleDefine(name_, _imports, _insides, factory_, _module);
     }
 
     /**
@@ -1655,7 +1711,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.3.1',
+        version: '1.3.2',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1673,20 +1729,34 @@
      * @return {Promise}
      */
     function require(modules, callback, fallback, config, emitter, frozen){
-        var _modules = String(modules).replace(rTrim, '').split(rComma);
+        var _imports = modules;
         var _context = new Context(config instanceof Config ? config : configGlobal);
         var _emitter = isString(emitter) ? emitter : sRequire;
-        var requires;
+        var _simplex = false;
+        var _insides;
 
-        if (isFunction(callback)) {
-            requires = extractFactoryRequires(_modules, callback);
+        if (isString(modules)) {
+            _imports = modules.split(rComma);
+            _simplex = 2 > _imports.length;
         }
 
-        return loadModules(_context, _modules, requires, _emitter, true === frozen).then(function(modules){
+        if (isArray(_imports)) {
+            _imports = arrMap.call(_imports, function(name){
+                return name.replace(rTrim, '');
+            });
+        } else {
+            throw new TypeError(_imports);
+        }
+
+        if (isFunction(callback)) {
+            _insides = extractFactoryRequires(_imports, callback);
+        }
+
+        return loadModules(_context, _imports, _insides, _emitter, true === frozen).then(function(modules){
             if (isFunction(callback)) {
                 return callback.apply(global, modules);
             } else {
-                return modules;
+                return _simplex ? modules[0] : modules;
             }
         }, function(reason){
             if (isFunction(fallback)) {
@@ -1804,15 +1874,6 @@
     };
 
     /**
-     * module 'Promise' factory
-     *
-     * @return {Function}
-     */
-    locModules.Promise = function(){
-        return Promise;
-    };
-
-    /**
      * module 'Deferred' factory
      *
      * @return {Function}
@@ -1822,18 +1883,13 @@
     };
 
 
-    // exports
+    // expose
     // =========================================================================
 
-    // exports Promise/A implementation functions
-    // as Promise module static methods
-    Promise.resolve  = promiseResolve;
-    Promise.resolved = promiseResolved;
-    Promise.rejected = promiseRejected;
-    Promise.when = promiseWhen;
-
-    // exports to global
-    global.define  = define;
-    global.require = require;
+    global.amdr = {
+        define:  global.define = define,
+        require: global.require = require,
+        version: '1.3.2'
+    };
 
 }(this, /*@cc_on!@*/!1));

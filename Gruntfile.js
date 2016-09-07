@@ -93,7 +93,7 @@ module.exports = function(grunt) {
             var year = '' + (new Date).getFullYear();
             return $2 + ($3 === year ? $3 : $3 + '~' + year);
         });
-        content = content.replace(/(version(?::|\s*=)\s*)'(?:\d+\.)+\d+'/, "$1'" + task.version + "'");
+        content = content.replace(/\b(version(?::|\s*=)\s*)'(?:\d+\.)+\d+'/, "$1'" + task.version + "'");
 
         checksum = require('crypto').createHash('sha1').update(content).digest('hex');
         content = content.replace(pattern, '$1 ' + task.version + ' (sha1: ' + checksum + ')\n');

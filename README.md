@@ -83,38 +83,15 @@ This may help to solve some circular dependency issues.
 
 ----------------------------------------
 
-## Built-in Module "Promise" API:
-
-`Promise(then Function)` is a abstract class of [Promise/A][3].
-
-The promise represents the *eventual outcome*, which is either fulfillment (success) and an associated value, or rejection (failure) and an associated *reason*.
-The promise provides mechanisms for arranging to call a function on its value or reason, and produces a new promise for the result.
-
-### Instance methods:
-* `promise.then([callback Function], [fallback Function])`
-  + `callback` to be called with the value after `promise` is fulfilled, or
-  + `fallback` to be called with the rejection reason after `promise` is rejected.
-
-### Static methods: (implements Promise/A)
-* `Promise.resolve(promiseOrValue *)`
-* `Promise.resolved([value *])`
-* `Promise.rejected([reason *])`
-* `Promise.when(promiseOrValue *, [callback Function], [fallback Function])`
-  + If `promiseOrValue` is a value, arranges for `callback` to be called with that value, and returns a promise for the result.
-  + If `promiseOrValue` is a promise, arranges for
-    - `callback` to be called with the value after `promise` is fulfilled, or
-    - `fallback` to be called with the rejection reason after `promise` is rejected.
-
-
 ## Built-in Module "Deferred" API:
 
-`Deferred()` is a class, implements [Promise/A][3].
+`new Deferred([executor(resolve, reject)])` is a class, implements [Promise/A][3] or [Promise/A+][4].
 
 A deferred represents an operation whose resolution is *pending*.
 It has separate `promise` and `resolver` parts that can be *safely* given out to separate groups of consumers and producers, respectively, to allow safe, one-way communication.
 
 ### Instance properties:
-* `deferred.promise` a Promise instance (implemented [Promise/A][3]).
+* `deferred.promise` a Promise instance (implemented [Promise/A][3] or [Promise/A+][4]).
 
 ### Instance methods:
 * `deferred.resolve([value *])` resolve promise.
@@ -123,6 +100,10 @@ It has separate `promise` and `resolver` parts that can be *safely* given out to
 * `deferred.then([callback Function], [fallback Function])`.
   + `callback` to be called with the value after `promise` is fulfilled, or
   + `fallback` to be called with the rejection reason after `promise` is rejected.
+
+### Static methods: (implements Promise/A or Promise/A+)
+* `Deferred.resolve(promiseOrValue *)` returns the promise itself or a resolved promise of the value.
+* `Deferred.reject([reason *])` returns a rejected promise of the reason.
 
 ----------------------------------------
 
@@ -143,16 +124,29 @@ This is the conditional module loader.
 ----------------------------------------
 
 ## Changes:
-* 1.3.x
+
+* 1.3.2
+  + supports module factory returns a promise.
+  + removed `Promise` built-in module.
+  + Improved `Deferred` built-in module.
+    - supports `new Deferred([executor(resolve, reject)])`
+    - added `Deferred.resolve()`
+    - added `Deferred.reject()`
+
+* 1.3.1
+  + bug fix.
+
+* 1.3.0
   + rewrites core functions.
   + supports dependency name rewriting by plugin.
   + separates module defining and executing.
   + simplifies the internal plugin logic.
-  + simplifies `Promise` and `Deferred`
+  + simplifies `Promise` and `Deferred`.
     - removed `promise.always()` function.
     - removed `deferred.notify()` function.
     - removed `progback` parameter of `promise.then()`.
     - removed `progback` parameter of `deferred.then()`.
+  + removed `config.config` property (`require.config()`).
   + removed `hot` loader module.
 
 * 1.2.x
@@ -177,3 +171,4 @@ This project is released under MIT license.
 [1]: http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition	"AMD Module"
 [2]: http://wiki.commonjs.org/wiki/Modules/1.1	"CommonJS Module"
 [3]: http://wiki.commonjs.org/wiki/Promises/A	"Promise/A"
+[4]: https://promisesaplus.com/	"Promise/A+"

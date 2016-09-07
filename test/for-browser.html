@@ -54,7 +54,7 @@
     QUnit.asyncTest('require "require"', 2, function(assert){
         wait(require('require', function(require){
             assert.ok('function' === typeof require, 'require is function');
-            assert.ok('function' === typeof require('Promise'), 'Promise is function');
+            assert.ok('function' === typeof require('Deferred'), 'Deferred is function');
         }, fallback(assert)));
     });
 
@@ -115,6 +115,13 @@
     QUnit.asyncTest('require non-module-2 rewrite to non-module-1', 1, function(assert){
         wait(require(['non-2'], function(module){
             assert.deepEqual(module, { shim: 'mod-1' }, 'non: { shim: true }');
+        }, fallback(assert)));
+    });
+
+    QUnit.asyncTest('require "delay-define"', 2, function(assert){
+        wait(require(['assets/delay-define'], function(exports){
+            assert.equal(typeof exports, 'number', 'exports type');
+            assert.ok(1000 < exports && exports < 1050, 'delay 1000ms');
         }, fallback(assert)));
     });
 
