@@ -1,5 +1,5 @@
 /*!
- * AMDR - CSS file loader 1.1.0 (sha1: 0a8ff25aabcb03682ff9e93446063beeff34f926)
+ * AMDR - CSS file loader 1.1.1 (sha1: 185ccca55195951dd8370bdfd071b844f93b2890)
  * (c) 2012~2016 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -58,9 +58,11 @@
         // flag: browser detecting
         isWebkit = 'webkitAppearance' in document.documentElement.style,
         isOpera  = '[object Opera]' === ({}).toString.call(global.opera),
+        isMSIE   = isIE || !!document.documentMode,
+        isEdge   = !isMSIE && !!global.StyleMedia,
 
         // flag: skips browser features detecting
-        skipTest = isIE || isOpera,
+        skipTest = isMSIE || isEdge || isOpera,
 
         // flag: waits browser features detecting
         waitTest = !skipTest,
@@ -106,7 +108,7 @@
     define('css', ['exports', 'Deferred'], function(exports, Deferred){
         'use strict';
 
-        exports.version = '1.1.0';
+        exports.version = '1.1.1';
 
         exports.load = function(request, name){
             var _name = name.split('#').shift();
@@ -243,7 +245,7 @@
             return !rules /* Webkit */ || 0 < rules.length;
         } catch(error) {
             // IE only throws error when cross domain request failed.
-            return !isIE && isCrossDomain(error);
+            return !(isMSIE || isEdge) && isCrossDomain(error);
         }
     }
 

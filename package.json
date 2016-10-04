@@ -17,7 +17,7 @@
   },
   "loaders": {
     "css": {
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     "has": {
       "version": "1.1.0"
