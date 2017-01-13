@@ -1,6 +1,6 @@
 /*!
- * AMDR 1.3.2 (sha1: a27a3e01a036b86963d1ec905a2b51d556e7d7b5)
- * (c) 2012~2016 Shen Junru. MIT License.
+ * AMDR 1.3.3 (sha1: 45c49edc5015681b8d4f8622ea3d9e4863e8de8f)
+ * (c) 2012~2017 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -804,9 +804,6 @@
         deferred.state = function(){
             return state;
         };
-        deferred.then = function(){
-            return promise.then.apply(promise, arguments);
-        };
         promise.then(function(){
             state = sResolved;
         }, function(){
@@ -822,7 +819,7 @@
     function DeferredPolyfill(){
         var deferred = this;
         var listeners = [];
-        var promise  = new Promise(undef);
+        var promise = new Promise(undef);
         var state = sPending;
 
         /**
@@ -885,7 +882,7 @@
          * @param {Function} [fallback] - rejected handler
          * @return {Promise}
          */
-        deferred.then = promise.then = function(callback, fallback){
+        promise.then = function(callback, fallback){
             return then(callback, fallback);
         };
 
@@ -1711,7 +1708,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.3.2',
+        version: '1.3.3',
         cache:   amdModules,
         jQuery:  true
     };

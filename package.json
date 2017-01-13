@@ -1,7 +1,7 @@
 {
   "name": "amdr",
   "description": "amdr.js is a small and very fast AMD-compliant asynchronous loader.",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "homepage": "https://github.com/shenjunru/amdr",
   "license": "MIT",
   "author": {
