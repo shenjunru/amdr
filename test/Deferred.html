@@ -31,47 +31,47 @@
         QUnit.asyncTest('resolved callback(assert)', 1, function(assert){
             var deferred = new Deferred();
             deferred.resolve('foo');
-            deferred.then(callback(assert, true), fallback(assert, false));
-            wait(deferred);
+            deferred.promise.then(callback(assert, true), fallback(assert, false));
+            wait(deferred.promise);
         });
 
         QUnit.asyncTest('rejected fallback(assert)', 1, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert, false), fallback(assert, true));
+            deferred.promise.then(callback(assert, false), fallback(assert, true));
             deferred.reject('bar');
-            wait(deferred);
+            wait(deferred.promise);
         });
 
         QUnit.asyncTest('resolved with fallback(assert)', 2, function(assert){
             var deferred = new Deferred();
             deferred.resolve('foo');
-            deferred.then(callback(assert, true), fallback(assert, false))
+            deferred.promise.then(callback(assert, true), fallback(assert, false))
                 .then(callback(assert, false), fallback(assert, true));
-            wait(deferred);
+            wait(deferred.promise);
         });
 
         QUnit.asyncTest('rejected with callback(assert)', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert, false), fallback(assert, true))
+            deferred.promise.then(callback(assert, false), fallback(assert, true))
                 .then(callback(assert, true), fallback(assert, false));
             deferred.reject('bar');
-            wait(deferred);
+            wait(deferred.promise);
         });
 
         QUnit.asyncTest('resolve with 2 callbacks arounds', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert, true), fallback(assert, false));
+            deferred.promise.then(callback(assert, true), fallback(assert, false));
             deferred.resolve('foo');
-            deferred.then(callback(assert, true), fallback(assert, false));
-            wait(deferred);
+            deferred.promise.then(callback(assert, true), fallback(assert, false));
+            wait(deferred.promise);
         });
 
         QUnit.asyncTest('reject with 2 failbacks arounds', 2, function(assert){
             var deferred = new Deferred();
-            deferred.then(callback(assert, false), fallback(assert, true));
+            deferred.promise.then(callback(assert, false), fallback(assert, true));
             deferred.reject('foo');
-            deferred.then(callback(assert, false), fallback(assert, true));
-            wait(deferred);
+            deferred.promise.then(callback(assert, false), fallback(assert, true));
+            wait(deferred.promise);
         });
     });
 
