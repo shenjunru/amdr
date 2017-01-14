@@ -1363,8 +1363,8 @@
             });
 
             // get module defining promise
-            promise = promise.then(function(exports){
-                if (!exports || !isFunction(exports.load)) {
+            promise = promise.then(function(plugin){
+                if (!plugin || !isFunction(plugin.load)) {
                     return promiseRejected(makeError({
                         message: '"load()" undefined.',
                         parent:  name,
@@ -1373,8 +1373,8 @@
                 }
 
                 // normalizes resource name
-                if (isFunction(exports.normalize)) {
-                    destName = exports.normalize(pipeName, function(name){
+                if (isFunction(plugin.normalize)) {
+                    destName = plugin.normalize(pipeName, function(name){
                         return nameNormalize(name, context.config);
                     });
                 } else {
@@ -1392,7 +1392,7 @@
 
                 try {
                     var local = false;
-                    var result = exports.load(/* request */{
+                    var result = plugin.load(/* request */{
                         /** @type {string} */
                         params: currHash,
 
@@ -1434,12 +1434,12 @@
                             var insides = result.insides;
 
                             // rewrites pipe resource name
-                            if (!frozen && isFunction(exports.rewrite)) {
+                            if (!frozen && isFunction(plugin.rewrite)) {
                                 imports = imports && arrMap.call(imports, function(name){
-                                    return exports.rewrite(name, module.name);
+                                    return plugin.rewrite(name, module.name);
                                 });
                                 insides && insides && arrMap.call(insides, function(name){
-                                    return exports.rewrite(name, module.name);
+                                    return plugin.rewrite(name, module.name);
                                 });
                             }
 
@@ -1520,7 +1520,7 @@
     }
 
     /**
-     * module defining
+     * module settling
      *
      * @param {Module} module - module instance
      * @param {boolean} frozen - disallow name rewriting
@@ -1724,6 +1724,7 @@
      * @param {string} [emitter="require"] - internal use, emitter name
      * @param {boolean} [frozen=false] - internal use, disallow name rewriting
      * @return {Promise}
+     * @throws TypeError
      */
     function require(modules, callback, fallback, config, emitter, frozen){
         var _imports = modules;
