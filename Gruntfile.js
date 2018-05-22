@@ -76,14 +76,15 @@ module.exports = function(grunt) {
         var pattern = /^(\/\*\!\s+\* [a-z -]+)(\s+[\d.]+)?(\s+\(sha1\: [a-z0-9]*\))?\n/i;
         var path = require('path');
         var task = this.data, checksum;
+        console.log('~~', task);
 
         if (!grunt.file.exists(task.file)) {
             grunt.log.warn('Source file ' + task.file + ' not found.');
             return;
         }
 
-        if (!grunt.file.exists(path.dirname(task.dest))) {
-            grunt.file.mkdir(path.dirname(task.dest));
+        if (!grunt.file.exists(path.dirname(task.file))) {
+            grunt.file.mkdir(path.dirname(task.file));
         }
 
         var content = grunt.file.read(task.file);

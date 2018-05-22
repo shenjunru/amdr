@@ -1,6 +1,6 @@
 /*!
- * AMDR 1.3.3 (sha1: 45c49edc5015681b8d4f8622ea3d9e4863e8de8f)
- * (c) 2012~2017 Shen Junru. MIT License.
+ * AMDR 1.3.4 (sha1: 936b503f7182f75f32fea3ee6a91391358cf8507)
+ * (c) 2012~2018 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
 
@@ -204,19 +204,23 @@
         rRequire = /\s*\((['"])([^'"(]+)\1\)/.source,
 
         // regexp: absolute url
-        // '/path' or 'http://path'
-        rAbsUrl = /^\/|^[^:]+:\/\//,
+        // '/', '/path', '//host' or 'http://host'
+        rAbsUrl = /^\/($|[^/])|^([^:]+:)?\/\/[^/]+/,
 
         // regexp: relative url
         // './path' or '../path'
         rRelUrl = /^\.?\.\//,
+
+        // regexp: full url
+        // '//host' or 'http://host'
+        rWithHost = /^([^:]+:)?\/\/[^/]+/,
 
         // regexp: '/./' path
         rDotPath = /\/\.\//g,
 
         // regexp: resource name
         // 'path/resource', '/resource' or 'resource'
-        rResource = /(\/?)[^\/]*$/,
+        rResource = /(\/?)[^/]*$/,
 
         // regexp: '?' or '#'
         rQizHash = /[?#]/,
@@ -1057,8 +1061,12 @@
         if (!(rQizHash.test(_url) || 0 < _url.split(sSlash).pop().indexOf(_ext))) {
             _url += _ext;
         }
-        if (config.urlBase && !rAbsUrl.test(name)) {
-            _url = config.urlBase + _url;
+        if (config.urlBase) {
+            if (!rAbsUrl.test(name)) {
+                _url = config.urlBase + _url;
+            } else if (!rWithHost.test(name)) {
+                _url = config.urlBase.slice(0, -1) + _url;
+            }
         }
 
         var path = _url.split('#').shift();
@@ -1701,6 +1709,7 @@
         }
         _module = new Context(configGlobal).getModule(name_);
         moduleDefine(name_, _imports, _insides, factory_, _module);
+        return name_;
     }
 
     /**
@@ -1708,7 +1717,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.3.3',
+        version: '1.3.4',
         cache:   amdModules,
         jQuery:  true
     };
