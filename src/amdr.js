@@ -69,184 +69,188 @@
 (function(global, isIE, undef){
     'use strict';
 
-    var // element: document
-        document    = global.document,
+    // element: document
+    var document    = global.document;
 
-        // object: global console object
-        console     = global.console,
+    // object: global console object
+    var console     = global.console;
 
-        // function: reference of setTimeout function
-        setTimeout  = global.setTimeout,
+    // object: original "define" and "require"
+    var oldDefine   = global.define;
+    var oldRequire  = global.require;
 
-        // function: reference of clearTimeout function
-        clsTimeout  = global.clearTimeout,
+    // function: reference of setTimeout function
+    var setTimeout  = global.setTimeout;
 
-        // function: reference of Object hasOwnProperty function
-        hasOwn      = Object.prototype.hasOwnProperty,
+    // function: reference of clearTimeout function
+    var clsTimeout  = global.clearTimeout;
 
-        // function: reference of Object toString function
-        toString    = Object.prototype.toString,
+    // function: reference of Object hasOwnProperty function
+    var hasOwn      = Object.prototype.hasOwnProperty;
 
-        // function: reference of Array indexOf function
-        arrIndex    = Array.prototype.indexOf || function(object, offset){
-            var length = this.length >>> 0;
+    // function: reference of Object toString function
+    var toString    = Object.prototype.toString;
 
-            offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
-            for (; offset < length; offset++) {
-                // skip accessing in sparse arrays
-                if (offset in this && object === this[offset]) {
-                    return offset;
-                }
+    // function: reference of Array indexOf function
+    var arrIndex    = Array.prototype.indexOf || function(object, offset){
+        var length = this.length >>> 0;
+
+        offset = offset ? ( offset < 0 ? Math.max(0, length + offset) : offset ) : 0;
+        for (; offset < length; offset++) {
+            // skip accessing in sparse arrays
+            if (offset in this && object === this[offset]) {
+                return offset;
             }
+        }
 
-            return -1;
-        },
+        return -1;
+    };
 
-        // function: reference of Array map function
-        arrMap      = Array.prototype.map || function(callback) {
-            var index = 0;
-            var length = this.length >>> 0;
-            var result = new Array(length);
+    // function: reference of Array map function
+    var arrMap      = Array.prototype.map || function(callback) {
+        var index = 0;
+        var length = this.length >>> 0;
+        var result = new Array(length);
 
-            for (; index < length; index++) {
-                if (index in this) {
-                    result[index] = callback.call(undef, this[index], index, this);
-                }
+        for (; index < length; index++) {
+            if (index in this) {
+                result[index] = callback.call(undef, this[index], index, this);
             }
+        }
 
-            return result;
-        },
+        return result;
+    };
 
-        // class: reference of native Promise class
-        NPromise    = global.Promise,
+    // class: reference of native Promise class
+    var NPromise    = global.Promise;
 
-        // class: reference of Deferred implementation
-        IDeferred   = NPromise ? DeferredNative : DeferredPolyfill,
+    // class: reference of Deferred implementation
+    var IDeferred   = NPromise ? DeferredNative : DeferredPolyfill;
 
-        // prototype: config prototype
-        ConfigProto = Config.prototype,
+    // prototype: config prototype
+    var ConfigProto = Config.prototype;
 
-        // flag: is not in the browser environment
-        notBrowser  = undef === document || undef === document.createElement,
+    // flag: is not in the browser environment
+    var notBrowser  = undef === document || undef === document.createElement;
 
-        // flag: is in the web worker environment
-        isWebWorker = notBrowser && isFunction(global.importScripts),
+    // flag: is in the web worker environment
+    var isWebWorker = notBrowser && isFunction(global.importScripts);
 
-        // element: resource insert point
-        insertPoint = notBrowser || firstNodeOfTagName('head') || firstNodeOfTagName('script'),
+    // element: resource insert point
+    var insertPoint = notBrowser || firstNodeOfTagName('head') || firstNodeOfTagName('script');
 
-        // element: features testing element
-        testElement = notBrowser ? {} : document.createElement('script'),
+    // element: features testing element
+    var testElement = notBrowser ? {} : document.createElement('script');
 
-        // event: onload
-        eventOnload = 'onload',
+    // event: onload
+    var eventOnload = 'onload';
 
-        // event: onerror
-        eventOnfail = 'onerror',
+    // event: onerror
+    var eventOnfail = 'onerror';
 
-        sReadyState = 'readyState',
+    var sReadyState = 'readyState';
 
-        // flag: supports script 'onload' event
-        catchOnload = eventOnload in testElement || !(sReadyState in testElement),
+    // flag: supports script 'onload' event
+    var catchOnload = eventOnload in testElement || !(sReadyState in testElement);
 
-        // flag: uses script.readyState
-        scriptState = !catchOnload,
+    // flag: uses script.readyState
+    var scriptState = !catchOnload;
 
-        // flag: script parsing
-        scriptParse = {},
+    // flag: script parsing
+    var scriptParse = {};
 
-        // collection: script ready states
-        readyStates = { 'interactive': scriptParse, 'loaded': 1, 'complete': 1 },
+    // collection: script ready states
+    var readyStates = { 'interactive': scriptParse, 'loaded': 1, 'complete': 1 };
 
-        // collection: local defined modules, by name
-        locModules = {},
+    // collection: local defined modules, by name
+    var locModules = {};
 
-        // collection: (browser) created amd modules, by full path
-        amdModules = {},
+    // collection: (browser) created amd modules, by full path
+    var amdModules = {};
 
-        // collection: (browser) loading scripts
-        actScripts = {},
+    // collection: (browser) loading scripts
+    var actScripts = {};
 
-        // queue: (browser) defer amd module define arguments (browser)
-        amdScriptQ = [],
+    // queue: (browser) defer amd module define arguments (browser)
+    var amdScriptQ = [];
 
-        // queue: (worker) loading modules
-        amdImportQ = [],
+    // queue: (worker) loading modules
+    var amdImportQ = [];
 
-        // state: loading scripts count
-        runScripts = 0,
+    // state: loading scripts count
+    var runScripts = 0;
 
-        // state: undetectable module name count
-        unknowns = 0,
+    // state: undetectable module name count
+    var unknowns = 0;
 
-        // config: global config
-        configGlobal = new Config(),
+    // config: global config
+    var configGlobal = new Config();
 
-        // object: empty
-        plainObject = {},
+    // object: empty
+    var plainObject = {};
 
-        // regexp: comma around spaces
-        rComma = /\s*,\s*/g,
+    // regexp: comma around spaces
+    var rComma = /\s*,\s*/g;
 
-        // regexp: trims leading spaces & ending spaces
-        rTrim = /^\s+|\s+$/g,
+    // regexp: trims leading spaces & ending spaces
+    var rTrim = /^\s+|\s+$/g;
 
-        // regexp: extracts function parameters
-        // 'function[ name ](parameters)'
-        rFnParams = /^\S+(?:\s*|\s+\S+\s*)\(([^)]*)\)[\s\S]+$/,
+    // regexp: extracts function parameters
+    // 'function[ name ](parameters)'
+    var rFnParams = /^\S+(?:\s*|\s+\S+\s*)\(([^)]*)\)[\s\S]+$/;
 
-        // regexp: removes function comments
-        // '// comments' or '/* comments */'
-        rComment = /\/\*([\s\S]*?)\*\/|\/\/(.*)$/mg,
+    // regexp: removes function comments
+    // '// comments' or '/* comments */'
+    var rComment = /\/\*([\s\S]*?)\*\/|\/\/(.*)$/mg;
 
-        // regexp: retrieves require() in a function
-        // 'require("module")'
-        rRequire = /\s*\((['"])([^'"(]+)\1\)/.source,
+    // regexp: retrieves require() in a function
+    // 'require("module")'
+    var rRequire = /\s*\((['"])([^'"(]+)\1\)/.source;
 
-        // regexp: absolute url
-        // '/', '/path', '//host' or 'http://host'
-        rAbsUrl = /^\/($|[^/])|^([^:]+:)?\/\/[^/]+/,
+    // regexp: absolute url
+    // '/', '/path', '//host' or 'http://host'
+    var rAbsUrl = /^\/($|[^/])|^([^:]+:)?\/\/[^/]+/;
 
-        // regexp: relative url
-        // './path' or '../path'
-        rRelUrl = /^\.?\.\//,
+    // regexp: relative url
+    // './path' or '../path'
+    var rRelUrl = /^\.?\.\//;
 
-        // regexp: full url
-        // '//host' or 'http://host'
-        rWithHost = /^([^:]+:)?\/\/[^/]+/,
+    // regexp: full url
+    // '//host' or 'http://host'
+    var rWithHost = /^([^:]+:)?\/\/[^/]+/;
 
-        // regexp: '/./' path
-        rDotPath = /\/\.\//g,
+    // regexp: '/./' path
+    var rDotPath = /\/\.\//g;
 
-        // regexp: resource name
-        // 'path/resource', '/resource' or 'resource'
-        rResource = /(\/?)[^/]*$/,
+    // regexp: resource name
+    // 'path/resource', '/resource' or 'resource'
+    var rResource = /(\/?)[^/]*$/;
 
-        // regexp: '?' or '#'
-        rQizHash = /[?#]/,
+    // regexp: '?' or '#'
+    var rQizHash = /[?#]/;
 
-        // regexp: end with '/'
-        rEndSlash = /\/$/,
+    // regexp: end with '/'
+    var rEndSlash = /\/$/;
 
-        // regexp: '?'
-        rQizMark = /\?/,
+    // regexp: '?'
+    var rQizMark = /\?/;
 
-        // regexp: '.' or '..'
-        rDotSkip = /\.\.?/,
+    // regexp: '.' or '..'
+    var rDotSkip = /\.\.?/;
 
-        // string: slash
-        sSlash   = '/',
+    // string: slash
+    var sSlash   = '/';
 
-        // string: require
-        sRequire = 'require',
+    // string: require
+    var sRequire = 'require';
 
-        // string: promise state
-        sPending  = 'pending',
-        sResolved = 'resolved',
-        sRejected = 'rejected',
+    // string: promise state
+    var sPending  = 'pending';
+    var sResolved = 'resolved';
+    var sRejected = 'rejected';
 
-        // array: common js dependencies
-        cjsImports = ['require', 'exports', 'module'];
+    // array: common js dependencies
+    var cjsImports = ['require', 'exports', 'module'];
 
     // features detections
     // =========================================================================
