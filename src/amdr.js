@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.3.4 (sha1: 816a00e3f2de8f10d1c5af385f64428968c0a652)
+ * AMDR 1.3.5 (sha1: a9d8d8b29f3c17fd838e1bdd6cb8c3e8439be5f0)
  * (c) 2012~2018 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -845,8 +845,8 @@
 
                 listeners.push(function(promise){
                     promise
-                    .then(callback, fallback)
-                    .then(_deferred.resolve, _deferred.reject);
+                        .then(callback, fallback)
+                        .then(_deferred.resolve, _deferred.reject);
                 });
             }
 
@@ -1721,7 +1721,7 @@
      * @type {Object}
      */
     define.amd = {
-        version: '1.3.4',
+        version: '1.3.5',
         cache:   amdModules,
         jQuery:  true
     };
@@ -1897,9 +1897,14 @@
     // =========================================================================
 
     global.amdr = {
+        version: '1.3.5',
+        config:  require.config,
         define:  global.define = define,
         require: global.require = require,
-        version: '1.3.4'
+        origin:  {
+            define:  oldDefine,
+            require: oldRequire
+        }
     };
 
 }(this, /*@cc_on!@*/!1));
