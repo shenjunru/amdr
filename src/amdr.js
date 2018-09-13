@@ -1,5 +1,5 @@
 /*!
- * AMDR 1.3.4 (sha1: 936b503f7182f75f32fea3ee6a91391358cf8507)
+ * AMDR 1.3.4 (sha1: 816a00e3f2de8f10d1c5af385f64428968c0a652)
  * (c) 2012~2018 Shen Junru. MIT License.
  * https://github.com/shenjunru/amdr
  */
@@ -1895,7 +1895,7 @@
     global.amdr = {
         define:  global.define = define,
         require: global.require = require,
-        version: '1.3.2'
+        version: '1.3.4'
     };
 
 }(this, /*@cc_on!@*/!1));

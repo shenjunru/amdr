@@ -76,7 +76,6 @@ module.exports = function(grunt) {
         var pattern = /^(\/\*\!\s+\* [a-z -]+)(\s+[\d.]+)?(\s+\(sha1\: [a-z0-9]*\))?\n/i;
         var path = require('path');
         var task = this.data, checksum;
-        console.log('~~', task);
 
         if (!grunt.file.exists(task.file)) {
             grunt.log.warn('Source file ' + task.file + ' not found.');
@@ -94,7 +93,7 @@ module.exports = function(grunt) {
             var year = '' + (new Date).getFullYear();
             return $2 + ($3 === year ? $3 : $3 + '~' + year);
         });
-        content = content.replace(/\b(version(?::|\s*=)\s*)'(?:\d+\.)+\d+'/, "$1'" + task.version + "'");
+        content = content.replace(/\b(version(?::|\s*=)\s*)'(?:\d+\.)+\d+'/g, "$1'" + task.version + "'");
 
         checksum = require('crypto').createHash('sha1').update(content).digest('hex');
         content = content.replace(pattern, '$1 ' + task.version + ' (sha1: ' + checksum + ')\n');
